@@ -56,14 +56,21 @@
         let database;
         let isFirebaseInitialized = false;
 
+        // Tenta inicializar o Firebase. O bloco try/catch garante que mesmo que
+        // haja um erro aqui, o código continue a execução para mostrar a tela de login.
         try {
-            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
                 firebase.initializeApp(firebaseConfig);
                 database = firebase.database();
                 isFirebaseInitialized = true;
+                console.log("Firebase inicializado com sucesso.");
+            } else {
+                console.warn("Firebase não inicializado. Usando valores padrões.");
             }
         } catch (error) {
-            console.error("Erro ao inicializar Firebase:", error);
+            console.error("ERRO FATAL ao inicializar Firebase:", error);
+            // Garante que o estado reflita a falha.
+            isFirebaseInitialized = false;
         }
 
         // Estado da aplicação
@@ -117,6 +124,7 @@
             if (!isFirebaseInitialized) return;
             database.ref('auth/passwordHash').once('value', (snapshot) => {
                 if (!snapshot.exists()) {
+                    // Define a senha padrão se não houver nenhuma
                     database.ref('auth/passwordHash').set(simpleHash(DEFAULT_PASSWORD));
                 }
             });
@@ -130,9 +138,21 @@
             }
 
             if (!isFirebaseInitialized) {
-                state.loginError = 'Firebase não configurado';
-                render();
-                return;
+                // Permite login com senha padrão se o Firebase não estiver configurado
+                // Isso é útil para testar a interface sem o backend
+                if (state.loginPassword === DEFAULT_PASSWORD) {
+                    state.isAuthenticated = true;
+                    state.showLogin = false;
+                    state.loginError = 'Atenção: Firebase não configurado. Dados não serão salvos.';
+                    state.loginPassword = '';
+                    loadFromFirebase();
+                    render();
+                    return;
+                } else {
+                    state.loginError = 'Senha incorreta e Firebase não configurado';
+                    render();
+                    return;
+                }
             }
 
             const passwordHash = simpleHash(state.loginPassword);
@@ -155,6 +175,11 @@
         }
 
         function handleChangePassword() {
+            if (!isFirebaseInitialized) {
+                state.passwordError = 'Firebase não configurado. Não é possível alterar a senha.';
+                render();
+                return;
+            }
             if (!state.newPassword || !state.confirmPassword) {
                 state.passwordError = 'Preencha todos os campos';
                 render();
@@ -235,6 +260,8 @@
                 const data = snapshot.val();
                 if (data) {
                     state.nomes = data;
+                    // Atualiza o responsável padrão no formulário
+                    state.formData.responsavel = data[0] || 'Fernando'; 
                     render();
                 }
             });
@@ -271,10 +298,15 @@
 
         function handleAddCategory() {
             if (state.newCategoryName.trim()) {
+                const newCategoryName = state.newCategoryName.trim();
                 if (state.categoryType === 'fixo') {
-                    state.categoriasFixas.push(state.newCategoryName);
+                    if (!state.categoriasFixas.includes(newCategoryName)) {
+                        state.categoriasFixas.push(newCategoryName);
+                    }
                 } else {
-                    state.categoriasVariaveis.push(state.newCategoryName);
+                    if (!state.categoriasVariaveis.includes(newCategoryName)) {
+                        state.categoriasVariaveis.push(newCategoryName);
+                    }
                 }
                 syncWithFirebase();
                 state.newCategoryName = '';
@@ -317,7 +349,24 @@
         }
 
         function handleSaveNames() {
-            state.nomes = [state.tempNome1, state.tempNome2];
+            const newName1 = state.tempNome1.trim() || state.nomes[0];
+            const newName2 = state.tempNome2.trim() || state.nomes[1];
+
+            if (newName1 === newName2) {
+                alert('Os nomes devem ser diferentes.');
+                return;
+            }
+
+            state.nomes = [newName1, newName2];
+            // Atualiza o responsável em todos os gastos antigos
+            state.gastos = state.gastos.map(g => {
+                if (g.responsavel !== state.nomes[0] && g.responsavel !== state.nomes[1]) {
+                    g.responsavel = newName1; // Define um nome padrão se o antigo não existir mais
+                    if (isFirebaseInitialized) saveGastoToFirebase(g);
+                }
+                return g;
+            });
+
             syncWithFirebase();
             state.showEditNames = false;
             render();
@@ -396,7 +445,7 @@
                     dadosMensais.total[mes] += gasto.valor;
                     if (gasto.responsavel === state.nomes[0]) {
                         dadosMensais.pessoa1[mes] += gasto.valor;
-                    } else {
+                    } else if (gasto.responsavel === state.nomes[1]) {
                         dadosMensais.pessoa2[mes] += gasto.valor;
                     }
                 }
@@ -421,7 +470,7 @@
         }
 
         function getAnosDisponiveis() {
-            const anos = new Set();
+            const anos = new Set([new Date().getFullYear()]);
             state.gastos.forEach(gasto => {
                 const ano = new Date(gasto.data + 'T00:00:00').getFullYear();
                 anos.add(ano);
@@ -521,7 +570,7 @@
 
         function criarGraficoCategoria() {
             const canvas = document.getElementById('graficoCategoria');
-            if (!canvas) return;
+            if (!canvas || !state.selectedCategory) return;
 
             if (state.charts.categoria) {
                 state.charts.categoria.destroy();
@@ -647,8 +696,8 @@
                                         <div class="flex items-start">
                                             <div class="text-2xl mr-3">⚠️</div>
                                             <div>
-                                                <p class="font-bold text-yellow-800">Firebase não configurado</p>
-                                                <p class="text-sm text-yellow-700 mt-1">Configure o Firebase no código para usar o sistema.</p>
+                                                <p class="font-bold text-yellow-800">Modo de Demonstração (Firebase Inativo)</p>
+                                                <p class="text-sm text-yellow-700 mt-1">Os dados não serão salvos. Configure o Firebase no código para usar o sistema completo.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -690,12 +739,11 @@
                                     <div class="flex items-start">
                                         <div class="text-2xl mr-3 mt-1">💡</div>
                                         <div>
-                                            <p class="font-bold text-blue-900 mb-2">Primeira vez aqui?</p>
-                                            <p class="text-sm text-blue-800 mb-2">Use a senha padrão:</p>
+                                            <p class="font-bold text-blue-900 mb-2">Senha Padrão:</p>
                                             <div class="bg-white px-4 py-2 rounded-lg inline-block border-2 border-blue-200">
-                                                <code class="text-blue-600 font-bold text-lg">familia2024</code>
+                                                <code class="text-blue-600 font-bold text-lg">${DEFAULT_PASSWORD}</code>
                                             </div>
-                                            <p class="text-xs text-blue-600 mt-3">💡 Você pode alterá-la depois nas configurações</p>
+                                            <p class="text-xs text-blue-600 mt-3">💡 Altere-a nas configurações após o primeiro acesso.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -876,6 +924,15 @@
                     </div>
                 `;
             }
+            
+            if (!state.selectedYear && anos.length > 0) {
+                state.selectedYear = anos[0];
+            }
+
+            if (!state.selectedCategory && todasCategorias.length > 0) {
+                state.selectedCategory = todasCategorias[0];
+            }
+
 
             return `
                 <div class="space-y-6">
@@ -904,7 +961,11 @@
                                 ${todasCategorias.map(cat => `<option value="${cat}" ${cat === state.selectedCategory ? 'selected' : ''}>${cat}</option>`).join('')}
                             </select>
                         </div>
-                        <div style="height: 400px;"><canvas id="graficoCategoria"></canvas></div>
+                        ${state.selectedCategory ? `
+                            <div style="height: 400px;"><canvas id="graficoCategoria"></canvas></div>
+                        ` : `
+                             <p class="text-center text-gray-500 py-8">Selecione uma categoria acima.</p>
+                        `}
                     </div>
 
                     <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 border-2 border-blue-100">
@@ -989,7 +1050,12 @@
                     <div class="space-y-6">
                         <div class="border-b border-gray-200 pb-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">🔐 Segurança</h3>
-                            ${!state.showChangePassword ? `
+                            ${!isFirebaseInitialized ? `
+                                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-lg">
+                                    <p class="font-bold">Aviso:</p>
+                                    <p class="text-sm">Não é possível alterar a senha. O Firebase não está configurado.</p>
+                                </div>
+                            ` : !state.showChangePassword ? `
                                 <button onclick="state.showChangePassword = true; render();" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                                     Alterar Senha
                                 </button>
@@ -1038,6 +1104,11 @@
         }
 
         function render() {
+            if (!document.getElementById('root')) {
+                console.error("Elemento #root não encontrado. A renderização foi abortada.");
+                return;
+            }
+
             if (!state.isAuthenticated) {
                 document.getElementById('root').innerHTML = renderLogin();
                 return;
@@ -1126,6 +1197,7 @@
             
             if (tab === 'graficos') {
                 setTimeout(() => {
+                    // Inicializa ano e categoria para gráficos, se necessário
                     if (!state.selectedYear) {
                         const anos = getAnosDisponiveis();
                         state.selectedYear = anos.length > 0 ? anos[0] : new Date().getFullYear();
@@ -1133,19 +1205,24 @@
                     
                     if (!state.selectedCategory) {
                         const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis];
-                        state.selectedCategory = todasCategorias[0] || 'Escola';
+                        state.selectedCategory = todasCategorias[0] || '';
                     }
                     
-                    criarGraficoMensal();
-                    criarGraficoCategoria();
+                    if (document.getElementById('graficoMensal')) criarGraficoMensal();
+                    if (document.getElementById('graficoCategoria') && state.selectedCategory) criarGraficoCategoria();
                 }, 100);
             }
         }
 
-        if (isFirebaseInitialized) {
-            checkStoredPassword();
-        }
-        render();
+        // --- INÍCIO DA APLICAÇÃO ---
+        // Garante que o script só comece a interagir com o DOM depois que a página estiver carregada
+        window.addEventListener('DOMContentLoaded', (event) => {
+            if (isFirebaseInitialized) {
+                checkStoredPassword();
+            }
+            // Força a renderização inicial (tela de login)
+            render();
+        });
     </script>
 </body>
 </html>
