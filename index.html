@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Orçamentário Familiar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        /* Adiciona um estilo mais profissional para o scroll */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* gray-300 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* gray-400 */
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-white min-h-screen">
+    <div id="root"></div>
+
+    <script>
+       // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAgopSuSjeQ26UL85eYb11w4BbbNtBg5QE",
+  authDomain: "orcamento-familiar-dc2e6.firebaseapp.com",
+  projectId: "orcamento-familiar-dc2e6",
+  storageBucket: "orcamento-familiar-dc2e6.firebasestorage.app",
+  messagingSenderId: "21809188621",
+  appId: "1:21809188621:web:103d45c3353106ebf5aa44",
+  measurementId: "G-4E95DZRK3F"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+        // Inicializar Firebase
+        let database;
+        let isFirebaseInitialized = false;
+
+        try {
+            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
+                firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                isFirebaseInitialized = true;
+            }
+        } catch (error) {
+            console.error("Erro ao inicializar Firebase:", error);
+        }
+
+        // Estado da aplicação
+        let state = {
+            isAuthenticated: false,
+            showLogin: true,
+            showChangePassword: false,
+            loginPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+            loginError: '',
+            passwordError: '',
+            activeTab: 'dashboard',
+            categoriasFixas: ['Escola', 'Diarista', 'Internet', 'Água', 'Luz', 'Clube'],
+            categoriasVariaveis: ['Supermercado', 'Farmácia', 'Lazer'],
+            limites: {},
+            gastos: [],
+            nomes: ['Fernando', 'Estefânia'],
+            showAddCategory: false,
+            showEditNames: false,
+            selectedCategory: '',
+            selectedYear: new Date().getFullYear(),
+            formData: {
+                tipo: 'fixo',
+                categoria: '',
+                valor: '',
+                data: new Date().toISOString().split('T')[0],
+                descricao: '',
+                responsavel: 'Fernando'
+            },
+            tempNome1: 'Fernando',
+            tempNome2: 'Estefânia',
+            newCategoryName: '',
+            categoryType: 'fixo',
+            charts: {}
+        };
+
+        const DEFAULT_PASSWORD = 'familia2024';
+
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return hash.toString();
+        }
+
+        function checkStoredPassword() {
+            if (!isFirebaseInitialized) return;
+            database.ref('auth/passwordHash').once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    database.ref('auth/passwordHash').set(simpleHash(DEFAULT_PASSWORD));
+                }
+            });
+        }
+
+        function handleLogin() {
+            if (!state.loginPassword) {
+                state.loginError = 'Digite a senha';
+                render();
+                return;
+            }
+
+            if (!isFirebaseInitialized) {
+                state.loginError = 'Firebase não configurado';
+                render();
+                return;
+            }
+
+            const passwordHash = simpleHash(state.loginPassword);
+            
+            database.ref('auth/passwordHash').once('value', (snapshot) => {
+                const storedHash = snapshot.val();
+                
+                if (storedHash === passwordHash) {
+                    state.isAuthenticated = true;
+                    state.showLogin = false;
+                    state.loginError = '';
+                    state.loginPassword = '';
+                    loadFromFirebase();
+                    render();
+                } else {
+                    state.loginError = 'Senha incorreta';
+                    render();
+                }
+            });
+        }
+
+        function handleChangePassword() {
+            if (!state.newPassword || !state.confirmPassword) {
+                state.passwordError = 'Preencha todos os campos';
+                render();
+                return;
+            }
+
+            if (state.newPassword.length < 6) {
+                state.passwordError = 'A senha deve ter pelo menos 6 caracteres';
+                render();
+                return;
+            }
+
+            if (state.newPassword !== state.confirmPassword) {
+                state.passwordError = 'As senhas não coincidem';
+                render();
+                return;
+            }
+
+            const newPasswordHash = simpleHash(state.newPassword);
+            database.ref('auth/passwordHash').set(newPasswordHash);
+            
+            state.showChangePassword = false;
+            state.newPassword = '';
+            state.confirmPassword = '';
+            state.passwordError = '';
+            alert('Senha alterada com sucesso! ✅');
+            render();
+        }
+
+        function handleLogout() {
+            state.isAuthenticated = false;
+            state.showLogin = true;
+            state.activeTab = 'dashboard';
+            render();
+        }
+
+        function syncWithFirebase() {
+            if (!isFirebaseInitialized) return;
+            database.ref('categorias').set({
+                fixas: state.categoriasFixas,
+                variaveis: state.categoriasVariaveis
+            });
+            database.ref('limites').set(state.limites);
+            database.ref('nomes').set(state.nomes);
+        }
+
+        function saveGastoToFirebase(gasto) {
+            if (!isFirebaseInitialized) return;
+            database.ref('gastos/' + gasto.id).set(gasto);
+        }
+
+        function removeGastoFromFirebase(id) {
+            if (!isFirebaseInitialized) return;
+            database.ref('gastos/' + id).remove();
+        }
+
+        function loadFromFirebase() {
+            if (!isFirebaseInitialized) return;
+
+            database.ref('categorias').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    state.categoriasFixas = data.fixas || state.categoriasFixas;
+                    state.categoriasVariaveis = data.variaveis || state.categoriasVariaveis;
+                    render();
+                }
+            });
+
+            database.ref('limites').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    state.limites = data;
+                    render();
+                }
+            });
+
+            database.ref('nomes').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    state.nomes = data;
+                    render();
+                }
+            });
+
+            database.ref('gastos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    state.gastos = Object.values(data);
+                    render();
+                }
+            });
+        }
+
+        function calcularTotalCategoria(categoria, tipo) {
+            return state.gastos
+                .filter(g => g.categoria === categoria && g.tipo === tipo)
+                .reduce((sum, g) => sum + g.valor, 0);
+        }
+
+        function calcularTotalPorPessoa(pessoa) {
+            return state.gastos
+                .filter(g => g.responsavel === pessoa)
+                .reduce((sum, g) => sum + g.valor, 0);
+        }
+
+        function verificarLimite(categoria, total) {
+            const limite = state.limites[categoria];
+            if (!limite) return null;
+            const percentual = (total / limite) * 100;
+            if (percentual >= 100) return 'danger';
+            if (percentual >= 80) return 'warning';
+            return 'safe';
+        }
+
+        function handleAddCategory() {
+            if (state.newCategoryName.trim()) {
+                if (state.categoryType === 'fixo') {
+                    state.categoriasFixas.push(state.newCategoryName);
+                } else {
+                    state.categoriasVariaveis.push(state.newCategoryName);
+                }
+                syncWithFirebase();
+                state.newCategoryName = '';
+                state.showAddCategory = false;
+                render();
+            }
+        }
+
+        function handleAddGasto() {
+            if (state.formData.categoria && state.formData.valor && state.formData.data && state.formData.responsavel) {
+                const novoGasto = {
+                    id: Date.now(),
+                    ...state.formData,
+                    valor: parseFloat(state.formData.valor)
+                };
+                state.gastos.push(novoGasto);
+                saveGastoToFirebase(novoGasto);
+                state.formData = {
+                    tipo: 'fixo',
+                    categoria: '',
+                    valor: '',
+                    data: new Date().toISOString().split('T')[0],
+                    descricao: '',
+                    responsavel: state.nomes[0]
+                };
+                render();
+            }
+        }
+
+        function handleRemoveGasto(id) {
+            state.gastos = state.gastos.filter(g => g.id !== id);
+            removeGastoFromFirebase(id);
+            render();
+        }
+
+        function handleSetLimite(categoria, valor) {
+            state.limites[categoria] = parseFloat(valor) || 0;
+            syncWithFirebase();
+            render();
+        }
+
+        function handleSaveNames() {
+            state.nomes = [state.tempNome1, state.tempNome2];
+            syncWithFirebase();
+            state.showEditNames = false;
+            render();
+        }
+
+        function exportToExcel() {
+            if (state.gastos.length === 0) {
+                alert('⚠️ Não há gastos para exportar!');
+                return;
+            }
+
+            const dadosExportacao = state.gastos.map(gasto => ({
+                'Data': new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR'),
+                'Tipo': gasto.tipo === 'fixo' ? 'Fixo' : 'Variável',
+                'Categoria': gasto.categoria,
+                'Responsável': gasto.responsavel,
+                'Valor (R$)': gasto.valor.toFixed(2),
+                'Descrição': gasto.descricao || '-'
+            }));
+
+            dadosExportacao.sort((a, b) => {
+                const dataA = a['Data'].split('/').reverse().join('');
+                const dataB = b['Data'].split('/').reverse().join('');
+                return dataB.localeCompare(dataA);
+            });
+
+            const totals = getTotals();
+            const resumo = [
+                { 'Data': 'RESUMO GERAL', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': '', 'Descrição': '' },
+                { 'Data': 'Total Geral', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': totals.totalGeral.toFixed(2), 'Descrição': '' },
+                { 'Data': 'Total Fixos', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': totals.totalFixos.toFixed(2), 'Descrição': '' },
+                { 'Data': 'Total Variáveis', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': totals.totalVariaveis.toFixed(2), 'Descrição': '' },
+                { 'Data': '', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': '', 'Descrição': '' },
+                { 'Data': state.nomes[0], 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': calcularTotalPorPessoa(state.nomes[0]).toFixed(2), 'Descrição': '' },
+                { 'Data': state.nomes[1], 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': calcularTotalPorPessoa(state.nomes[1]).toFixed(2), 'Descrição': '' },
+                { 'Data': '', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': '', 'Descrição': '' },
+                { 'Data': 'DETALHAMENTO', 'Tipo': '', 'Categoria': '', 'Responsável': '', 'Valor (R$)': '', 'Descrição': '' }
+            ];
+
+            const dadosCompletos = [...resumo, ...dadosExportacao];
+            const ws = XLSX.utils.json_to_sheet(dadosCompletos);
+            ws['!cols'] = [
+                { wch: 12 }, { wch: 10 }, { wch: 15 }, 
+                { wch: 15 }, { wch: 12 }, { wch: 30 }
+            ];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
+
+            const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+            const nomeArquivo = `Orcamento_Familiar_${dataAtual}.xlsx`;
+
+            XLSX.writeFile(wb, nomeArquivo);
+            alert('✅ Planilha exportada com sucesso!');
+        }
+
+        function getTotals() {
+            const totalFixos = state.gastos.filter(g => g.tipo === 'fixo').reduce((sum, g) => sum + g.valor, 0);
+            const totalVariaveis = state.gastos.filter(g => g.tipo === 'variavel').reduce((sum, g) => sum + g.valor, 0);
+            return { totalFixos, totalVariaveis, totalGeral: totalFixos + totalVariaveis };
+        }
+
+        function processarDadosMensais(ano) {
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const dadosMensais = {
+                labels: meses,
+                total: new Array(12).fill(0),
+                pessoa1: new Array(12).fill(0),
+                pessoa2: new Array(12).fill(0)
+            };
+
+            state.gastos.forEach(gasto => {
+                const dataGasto = new Date(gasto.data + 'T00:00:00');
+                if (dataGasto.getFullYear() === ano) {
+                    const mes = dataGasto.getMonth();
+                    dadosMensais.total[mes] += gasto.valor;
+                    if (gasto.responsavel === state.nomes[0]) {
+                        dadosMensais.pessoa1[mes] += gasto.valor;
+                    } else {
+                        dadosMensais.pessoa2[mes] += gasto.valor;
+                    }
+                }
+            });
+
+            return dadosMensais;
+        }
+
+        function processarDadosCategoria(categoria, ano) {
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const dados = new Array(12).fill(0);
+
+            state.gastos.forEach(gasto => {
+                const dataGasto = new Date(gasto.data + 'T00:00:00');
+                if (dataGasto.getFullYear() === ano && gasto.categoria === categoria) {
+                    const mes = dataGasto.getMonth();
+                    dados[mes] += gasto.valor;
+                }
+            });
+
+            return { labels: meses, valores: dados };
+        }
+
+        function getAnosDisponiveis() {
+            const anos = new Set();
+            state.gastos.forEach(gasto => {
+                const ano = new Date(gasto.data + 'T00:00:00').getFullYear();
+                anos.add(ano);
+            });
+            return Array.from(anos).sort((a, b) => b - a);
+        }
+
+        function criarGraficoMensal() {
+            const canvas = document.getElementById('graficoMensal');
+            if (!canvas) return;
+
+            if (state.charts.mensal) {
+                state.charts.mensal.destroy();
+            }
+
+            const dados = processarDadosMensais(state.selectedYear);
+            const ctx = canvas.getContext('2d');
+            
+            state.charts.mensal = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dados.labels,
+                    datasets: [
+                        {
+                            label: 'Total Geral',
+                            data: dados.total,
+                            borderColor: 'rgb(79, 70, 229)', /* Indigo-600 */
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: state.nomes[0],
+                            data: dados.pessoa1,
+                            borderColor: 'rgb(251, 146, 60)', /* Orange-500 */
+                            backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: state.nomes[1],
+                            data: dados.pessoa2,
+                            borderColor: 'rgb(236, 72, 153)', /* Pink-500 */
+                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: { size: 12, weight: 'bold' }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return (context.dataset.label || '') + ': R$ ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toFixed(0);
+                                }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function criarGraficoCategoria() {
+            const canvas = document.getElementById('graficoCategoria');
+            if (!canvas) return;
+
+            if (state.charts.categoria) {
+                state.charts.categoria.destroy();
+            }
+
+            const dados = processarDadosCategoria(state.selectedCategory, state.selectedYear);
+            const ctx = canvas.getContext('2d');
+            
+            state.charts.categoria = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dados.labels,
+                    datasets: [{
+                        label: state.selectedCategory,
+                        data: dados.valores,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: 'rgb(34, 197, 94)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: { size: 12, weight: 'bold' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'R$ ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toFixed(0);
+                                }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function updateSelectedYear(ano) {
+            state.selectedYear = parseInt(ano);
+            criarGraficoMensal();
+            criarGraficoCategoria();
+        }
+
+        function updateSelectedCategory(categoria) {
+            state.selectedCategory = categoria;
+            criarGraficoCategoria();
+        }
+
+        function renderLogin() {
+            return `
+                <div class="min-h-screen flex items-center justify-center px-4 py-8 relative">
+                    <div class="relative z-10 w-full max-w-md fade-in">
+                        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+                            <div class="bg-indigo-600 p-8 text-center relative">
+                                <div class="relative z-10">
+                                    <div class="inline-block mb-4 p-4 bg-white rounded-full shadow-lg">
+                                        <svg class="text-indigo-600" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                                        </svg>
+                                    </div>
+                                    <h1 class="text-3xl font-bold text-white mb-2">Bem-vindo!</h1>
+                                    <p class="text-indigo-100 text-sm">Controle Orçamentário Familiar</p>
+                                </div>
+                            </div>
+                            
+                            <div class="p-8">
+                                ${!isFirebaseInitialized ? `
+                                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg mb-6">
+                                        <div class="flex items-start">
+                                            <div class="text-2xl mr-3">⚠️</div>
+                                            <div>
+                                                <p class="font-bold text-yellow-800">Firebase não configurado</p>
+                                                <p class="text-sm text-yellow-700 mt-1">Configure o Firebase no código para usar o sistema.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <div class="mb-6">
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">🔐 Digite sua senha</label>
+                                    <div class="relative">
+                                        <input
+                                            type="password"
+                                            value="${state.loginPassword}"
+                                            onchange="state.loginPassword = this.value; state.loginError = ''; render();"
+                                            onkeypress="if(event.key === 'Enter') handleLogin()"
+                                            placeholder="••••••••"
+                                            class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 transition-all"
+                                            autofocus
+                                        />
+                                        <div class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">🔒</div>
+                                    </div>
+                                </div>
+
+                                ${state.loginError ? `
+                                    <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg mb-6 fade-in">
+                                        <div class="flex items-center">
+                                            <div class="text-xl mr-3">❌</div>
+                                            <p class="text-red-700 font-medium">${state.loginError}</p>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <button
+                                    onclick="handleLogin()"
+                                    class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all duration-200"
+                                >
+                                    Entrar no Sistema
+                                </button>
+
+                                <div class="mt-8 bg-gray-50 rounded-xl p-5 border border-gray-200">
+                                    <div class="flex items-start">
+                                        <div class="text-2xl mr-3 mt-1 text-indigo-500">💡</div>
+                                        <div>
+                                            <p class="font-bold text-gray-800 mb-2">Primeira vez aqui?</p>
+                                            <p class="text-sm text-gray-700 mb-2">Use a senha padrão:</p>
+                                            <div class="bg-white px-4 py-2 rounded-lg inline-block border border-indigo-200">
+                                                <code class="text-indigo-600 font-bold text-lg">familia2024</code>
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-3">Você pode alterá-la depois nas configurações</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-6 text-gray-500 text-sm">
+                            <p>🔒 Dados seguros e sincronizados via Firebase</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDashboard() {
+            const totals = getTotals();
+            return `
+                <div class="space-y-8">
+                    <div class="flex justify-end">
+                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-all flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                            <span class="text-xl">📊</span>Exportar para Excel
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white rounded-xl p-6 shadow-lg border-b-4 border-indigo-500 transform hover:scale-[1.01] transition-transform">
+                            <p class="text-sm font-semibold text-indigo-600 uppercase tracking-wider">Total Geral</p>
+                            <p class="text-4xl font-extrabold text-gray-800 mt-2">R$ ${totals.totalGeral.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-white rounded-xl p-6 shadow-lg border-b-4 border-green-500 transform hover:scale-[1.01] transition-transform">
+                            <p class="text-sm font-semibold text-green-600 uppercase tracking-wider">Gastos Fixos</p>
+                            <p class="text-4xl font-extrabold text-gray-800 mt-2">R$ ${totals.totalFixos.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-white rounded-xl p-6 shadow-lg border-b-4 border-amber-500 transform hover:scale-[1.01] transition-transform">
+                            <p class="text-sm font-semibold text-amber-600 uppercase tracking-wider">Gastos Variáveis</p>
+                            <p class="text-4xl font-extrabold text-gray-800 mt-2">R$ ${totals.totalVariaveis.toFixed(2)}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">Gastos por Pessoa</h2>
+                            <button onclick="openEditNames()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                Editar Nomes
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            ${state.nomes.map((nome, index) => {
+                                const total = calcularTotalPorPessoa(nome);
+                                const quantidade = state.gastos.filter(g => g.responsavel === nome).length;
+                                const color = index === 0 ? 'bg-orange-50 border-orange-300 text-orange-800' : 'bg-pink-50 border-pink-300 text-pink-800';
+                                return `
+                                    <div class="rounded-xl p-5 border-2 ${color} shadow-sm">
+                                        <p class="text-lg font-bold">${nome}</p>
+                                        <p class="text-3xl font-extrabold mt-1">R$ ${total.toFixed(2)}</p>
+                                        <p class="text-xs text-gray-600 mt-2">${quantidade} gasto${quantidade !== 1 ? 's' : ''} registrado${quantidade !== 1 ? 's' : ''}</p>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Gastos Fixos Mensais</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            ${state.categoriasFixas.map(cat => {
+                                const total = calcularTotalCategoria(cat, 'fixo');
+                                return `
+                                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 transition-colors">
+                                        <p class="text-sm text-green-700 font-semibold">${cat}</p>
+                                        <p class="text-2xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Gastos Variáveis e Limites</h2>
+                        <div class="space-y-6">
+                            ${state.categoriasVariaveis.map(cat => {
+                                const total = calcularTotalCategoria(cat, 'variavel');
+                                const limite = state.limites[cat] || 0;
+                                const status = verificarLimite(cat, total);
+                                const percentual = limite > 0 ? (total / limite) * 100 : 0;
+                                
+                                let statusClass = 'bg-gray-200';
+                                let barClass = 'bg-gray-400';
+                                let message = '';
+
+                                if (limite > 0) {
+                                    if (percentual >= 100) {
+                                        barClass = 'bg-red-500';
+                                        message = '⚠️ Limite estourado!';
+                                    } else if (percentual >= 80) {
+                                        barClass = 'bg-yellow-500';
+                                        message = 'Atenção: Próximo do limite';
+                                    } else {
+                                        barClass = 'bg-green-500';
+                                        message = 'Dentro do limite';
+                                    }
+                                }
+                                
+                                return `
+                                    <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                        <div class="flex justify-between items-start mb-3">
+                                            <div class="flex-1">
+                                                <p class="text-lg text-amber-700 font-semibold">${cat}</p>
+                                                <p class="text-3xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
+                                            </div>
+                                            <div class="text-right flex items-center gap-3">
+                                                <div class="flex flex-col items-end">
+                                                    <p class="text-xs text-gray-500 mb-1">Limite (R$ ${limite.toFixed(2)})</p>
+                                                    <input type="number" placeholder="Definir Limite" value="${limite || ''}" onchange="handleSetLimite('${cat}', this.value)" class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        ${limite > 0 ? `
+                                            <div class="mt-4">
+                                                <div class="flex justify-between text-xs font-medium text-gray-600 mb-1">
+                                                    <span>${Math.min(percentual, 100).toFixed(1)}% usado</span>
+                                                    <span>Restante: R$ ${(limite - total).toFixed(2)}</span>
+                                                </div>
+                                                <div class="w-full ${statusClass} rounded-full h-2.5">
+                                                    <div class="h-2.5 rounded-full transition-all ${barClass}" style="width: ${Math.min(percentual, 100)}%"></div>
+                                                </div>
+                                                <p class="text-sm mt-2 ${barClass.replace('bg-', 'text-')} font-medium">${message}</p>
+                                            </div>
+                                        ` : '<p class="text-sm text-gray-500 mt-3">Defina um limite para acompanhar o progresso.</p>'}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAddGasto() {
+            return `
+                <div class="bg-white rounded-xl shadow-xl p-8 max-w-2xl mx-auto border border-gray-100">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-8">Adicionar Novo Gasto</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Quem fez o gasto?</label>
+                            <select onchange="updateFormData('responsavel', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+                                ${state.nomes.map(nome => `<option value="${nome}" ${state.formData.responsavel === nome ? 'selected' : ''}>${nome}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Gasto</label>
+                            <select onchange="updateFormData('tipo', this.value); updateFormData('categoria', '')" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+                                <option value="fixo" ${state.formData.tipo === 'fixo' ? 'selected' : ''}>Fixo (Ex: Aluguel, Internet)</option>
+                                <option value="variavel" ${state.formData.tipo === 'variavel' ? 'selected' : ''}>Variável (Ex: Supermercado, Lazer)</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Categoria</label>
+                            <select onchange="updateFormData('categoria', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+                                <option value="">Selecione uma categoria</option>
+                                ${(state.formData.tipo === 'fixo' ? state.categoriasFixas : state.categoriasVariaveis).map(cat => `
+                                    <option value="${cat}" ${state.formData.categoria === cat ? 'selected' : ''}>${cat}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Valor (R$)</label>
+                            <input type="number" step="0.01" value="${state.formData.valor}" onchange="updateFormData('valor', this.value)" placeholder="0.00" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Data</label>
+                            <input type="date" value="${state.formData.data}" onchange="updateFormData('data', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors"/>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Descrição (Opcional)</label>
+                            <textarea onchange="updateFormData('descricao', this.value)" placeholder="Detalhes sobre o gasto" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors">${state.formData.descricao}</textarea>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <button onclick="handleAddGasto()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-md hover:shadow-lg transition-colors">
+                                ➕ Adicionar Gasto
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+                        <button onclick="openAddCategory()" class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm transition-colors flex items-center justify-center mx-auto gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Adicionar Nova Categoria
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGraficos() {
+            const anos = getAnosDisponiveis();
+            const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis];
+            
+            if (state.gastos.length === 0) {
+                return `
+                    <div class="bg-white rounded-xl shadow-xl p-8 text-center border border-gray-100">
+                        <div class="text-6xl mb-4 text-indigo-400">📊</div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Nenhum dado para visualizar</h2>
+                        <p class="text-gray-600">Adicione alguns gastos na aba 'Adicionar' para ver os gráficos.</p>
+                    </div>
+                `;
+            }
+            
+            if (!state.selectedCategory) {
+                const initialCategory = todasCategorias[0] || 'Escola';
+                state.selectedCategory = initialCategory;
+            }
+
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-md p-4 flex items-center gap-4 border border-gray-100">
+                        <label class="text-base font-bold text-gray-700">📅 Ano de Análise:</label>
+                        <select onchange="updateSelectedYear(this.value)" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium">
+                            ${anos.map(ano => `<option value="${ano}" ${ano === state.selectedYear ? 'selected' : ''}>${ano}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-xl p-6 border border-gray-100">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Evolução Mensal de Gastos</h2>
+                        <p class="text-sm text-gray-600 mb-6">Gastos totais e por responsável ao longo de ${state.selectedYear}</p>
+                        <div style="height: 400px;"><canvas id="graficoMensal"></canvas></div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-xl p-6 border border-gray-100">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800 mb-1">📊 Análise por Categoria</h2>
+                                <p class="text-sm text-gray-600">Evolução mensal da categoria selecionada</p>
+                            </div>
+                            <select onchange="updateSelectedCategory(this.value)" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
+                                ${todasCategorias.map(cat => `<option value="${cat}" ${cat === state.selectedCategory ? 'selected' : ''}>${cat}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div style="height: 400px;"><canvas id="graficoCategoria"></canvas></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderHistorico() {
+            const sortedGastos = [...state.gastos].sort((a, b) => new Date(b.data) - new Date(a.data));
+            
+            return `
+                <div class="bg-white rounded-xl shadow-xl p-6 border border-gray-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Histórico de Gastos</h2>
+                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold shadow-md">
+                            <span class="text-xl">📊</span>Exportar Excel
+                        </button>
+                    </div>
+                    ${sortedGastos.length === 0 ? `
+                        <p class="text-center text-gray-500 py-8">Nenhum gasto registrado ainda.</p>
+                    ` : `
+                        <div class="space-y-3">
+                            ${sortedGastos.map(gasto => `
+                                <div class="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                                    <div class="flex-1 min-w-0 pr-4">
+                                        <div class="flex items-center gap-3 flex-wrap mb-1">
+                                            <span class="px-3 py-1 rounded-full text-xs font-bold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                                                ${gasto.tipo === 'fixo' ? 'Fixo' : 'Variável'}
+                                            </span>
+                                            <span class="font-bold text-gray-800 truncate">${gasto.categoria}</span>
+                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">👤 ${gasto.responsavel}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 truncate">${gasto.descricao || 'Sem descrição'}</p>
+                                        <p class="text-xs text-gray-500 mt-1">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                                    </div>
+                                    <div class="flex items-center gap-4 shrink-0">
+                                        <span class="text-xl font-extrabold text-red-600">R$ ${gasto.valor.toFixed(2)}</span>
+                                        <button onclick="handleRemoveGasto(${gasto.id})" class="text-red-500 hover:text-red-700 transition-colors p-2 rounded-full hover:bg-red-50" title="Remover Gasto">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        function renderConfig() {
+            return `
+                <div class="bg-white rounded-xl shadow-xl p-8 max-w-2xl mx-auto border border-gray-100">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-8">⚙️ Configurações do Sistema</h2>
+                    <div class="space-y-8">
+                        
+                        <div class="border-b border-gray-200 pb-6">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">🔐 Segurança e Acesso</h3>
+                            ${!state.showChangePassword ? `
+                                <button onclick="state.showChangePassword = true; render();" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md">
+                                    Alterar Senha
+                                </button>
+                            ` : `
+                                <div class="space-y-4 bg-indigo-50 p-6 rounded-lg border border-indigo-200">
+                                    <h4 class="font-bold text-indigo-800">Definir Nova Senha</h4>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nova Senha</label>
+                                        <input type="password" value="${state.newPassword}" onchange="state.newPassword = this.value; render();" placeholder="Mínimo 6 caracteres" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">Confirmar Nova Senha</label>
+                                        <input type="password" value="${state.confirmPassword}" onchange="state.confirmPassword = this.value; render();" placeholder="Digite novamente" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                                    </div>
+                                    ${state.passwordError ? `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">${state.passwordError}</div>` : ''}
+                                    <div class="flex gap-3 pt-2">
+                                        <button onclick="state.showChangePassword = false; state.newPassword = ''; state.confirmPassword = ''; state.passwordError = ''; render();" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Cancelar</button>
+                                        <button onclick="handleChangePassword()" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Salvar Nova Senha</button>
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">🚪 Gerenciamento da Sessão</h3>
+                            <button onclick="handleLogout()" class="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md">
+                                Sair do Sistema
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateFormData(field, value) {
+            state.formData[field] = value;
+            render();
+        }
+
+        function openAddCategory() {
+            state.showAddCategory = true;
+            render();
+        }
+
+        function openEditNames() {
+            state.tempNome1 = state.nomes[0];
+            state.tempNome2 = state.nomes[1];
+            state.showEditNames = true;
+            render();
+        }
+
+        function render() {
+            if (!state.isAuthenticated) {
+                document.getElementById('root').innerHTML = renderLogin();
+                return;
+            }
+
+            const content = `
+                <div class="container mx-auto px-4 py-8">
+                    <div class="text-center mb-8">
+                        <h1 class="text-4xl font-extrabold text-gray-800 mb-2">💰 Controle Orçamentário Familiar</h1>
+                        <p class="text-gray-500 text-lg">Gerencie suas finanças de forma simples e eficiente</p>
+                    </div>
+                    
+                    <div class="flex justify-center mb-10">
+                        <div class="bg-white rounded-xl shadow-lg p-1 inline-flex gap-1 flex-wrap border border-gray-100">
+                            <button onclick="changeTab('dashboard')" class="px-5 md:px-8 py-2.5 rounded-lg font-bold transition-colors text-sm ${state.activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}">Dashboard</button>
+                            <button onclick="changeTab('adicionar')" class="px-5 md:px-8 py-2.5 rounded-lg font-bold transition-colors text-sm ${state.activeTab === 'adicionar' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}">Adicionar Gasto</button>
+                            <button onclick="changeTab('graficos')" class="px-5 md:px-8 py-2.5 rounded-lg font-bold transition-colors text-sm ${state.activeTab === 'graficos' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}">Gráficos</button>
+                            <button onclick="changeTab('historico')" class="px-5 md:px-8 py-2.5 rounded-lg font-bold transition-colors text-sm ${state.activeTab === 'historico' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}">Histórico</button>
+                            <button onclick="changeTab('config')" class="px-5 md:px-8 py-2.5 rounded-lg font-bold transition-colors text-sm ${state.activeTab === 'config' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}">Configurações</button>
+                        </div>
+                    </div>
+                    
+                    <div class="max-w-7xl mx-auto fade-in">
+                        ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
+                        ${state.activeTab === 'adicionar' ? renderAddGasto() : ''}
+                        ${state.activeTab === 'graficos' ? renderGraficos() : ''}
+                        ${state.activeTab === 'historico' ? renderHistorico() : ''}
+                        ${state.activeTab === 'config' ? renderConfig() : ''}
+                    </div>
+                </div>
+
+                ${state.showAddCategory ? `
+                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 fade-in">
+                        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-6">Adicionar Nova Categoria</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo</label>
+                                    <select onchange="state.categoryType = this.value; render();" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="fixo" ${state.categoryType === 'fixo' ? 'selected' : ''}>Fixo</option>
+                                        <option value="variavel" ${state.categoryType === 'variavel' ? 'selected' : ''}>Variável</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nome da Categoria</label>
+                                    <input type="text" value="${state.newCategoryName}" onchange="state.newCategoryName = this.value" placeholder="Ex: Aluguel, Transporte" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                                </div>
+                                <div class="flex gap-3 pt-4">
+                                    <button onclick="state.showAddCategory = false; state.newCategoryName = ''; render();" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Cancelar</button>
+                                    <button onclick="handleAddCategory()" class="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">Adicionar Categoria</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${state.showEditNames ? `
+                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 fade-in">
+                        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-6">Personalizar Nomes</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Pessoa 1</label>
+                                    <input type="text" value="${state.tempNome1}" onchange="state.tempNome1 = this.value" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Pessoa 2</label>
+                                    <input type="text" value="${state.tempNome2}" onchange="state.tempNome2 = this.value" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                                </div>
+                                <div class="flex gap-3 pt-4">
+                                    <button onclick="state.showEditNames = false; render();" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Cancelar</button>
+                                    <button onclick="handleSaveNames()" class="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">Salvar Nomes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+            
+            document.getElementById('root').innerHTML = content;
+        }
+
+        function changeTab(tab) {
+            state.activeTab = tab;
+            render();
+            
+            if (tab === 'graficos') {
+                setTimeout(() => {
+                    if (!state.selectedYear) {
+                        const anos = getAnosDisponiveis();
+                        state.selectedYear = anos.length > 0 ? anos[0] : new Date().getFullYear();
+                    }
+                    
+                    if (!state.selectedCategory) {
+                        const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis];
+                        state.selectedCategory = todasCategorias[0] || 'Escola';
+                    }
+                    
+                    criarGraficoMensal();
+                    criarGraficoCategoria();
+                }, 100);
+            }
+        }
+
+        if (isFirebaseInitialized) {
+            checkStoredPassword();
+        }
+        render();
+    </script>
+</body>
+</html>
