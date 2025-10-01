@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1057,34 +1058,34 @@
                                 
                                 return `
                                     <div class="border-l-4 border-blue-500 pl-4">
-                                        <div class="flex justify-between items-center mb-3">
-                                            <h3 class="text-lg font-bold text-gray-800 capitalize">${nomeMes}</h3>
-                                            <span class="text-lg font-bold text-blue-600">R$ ${totalMes.toFixed(2)}</span>
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h3 class="text-base font-bold text-gray-800 capitalize">${nomeMes}</h3>
+                                            <span class="text-base font-bold text-blue-600">R$ ${totalMes.toFixed(2)}</span>
                                         </div>
-                                        <div class="space-y-3">
+                                        <div class="space-y-2">
                                             ${Object.keys(gastosPorCategoria).sort().map(categoria => {
                                                 const gastosCategoria = gastosPorCategoria[categoria];
                                                 const totalCategoria = gastosCategoria.reduce((sum, g) => sum + g.valor, 0);
                                                 
                                                 return `
-                                                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                                        <div class="flex justify-between items-center mb-2">
-                                                            <span class="font-semibold text-gray-700 text-sm">${categoria}</span>
-                                                            <span class="font-bold text-gray-800">R$ ${totalCategoria.toFixed(2)}</span>
+                                                    <div class="bg-gray-50 rounded-lg p-2 border border-gray-200">
+                                                        <div class="flex justify-between items-center mb-1">
+                                                            <span class="font-semibold text-gray-700 text-xs">${categoria}</span>
+                                                            <span class="font-bold text-gray-800 text-sm">R$ ${totalCategoria.toFixed(2)}</span>
                                                         </div>
-                                                        <div class="space-y-2">
+                                                        <div class="space-y-1">
                                                             ${gastosCategoria.map(gasto => `
-                                                                <div class="flex items-center justify-between text-sm bg-white p-2 rounded">
-                                                                    <div class="flex items-center gap-2 flex-1">
-                                                                        <span class="px-2 py-0.5 rounded text-xs font-semibold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}">
+                                                                <div class="flex items-center justify-between text-xs bg-white p-1.5 rounded">
+                                                                    <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                                                                        <span class="px-1.5 py-0.5 rounded text-xs font-semibold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}">
                                                                             ${gasto.tipo === 'fixo' ? 'F' : 'V'}
                                                                         </span>
                                                                         <span class="text-xs text-gray-600">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                                                                        <span class="px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${gasto.responsavel}</span>
-                                                                        <span class="text-gray-600 text-xs truncate">${gasto.descricao || '-'}</span>
+                                                                        <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${gasto.responsavel}</span>
+                                                                        <span class="text-gray-600 text-xs truncate flex-1">${gasto.descricao || '-'}</span>
                                                                     </div>
-                                                                    <div class="flex items-center gap-2">
-                                                                        <span class="font-semibold text-gray-800">R$ ${gasto.valor.toFixed(2)}</span>
+                                                                    <div class="flex items-center gap-1.5 ml-2">
+                                                                        <span class="font-semibold text-gray-800 text-xs whitespace-nowrap">R$ ${gasto.valor.toFixed(2)}</span>
                                                                         <button onclick="handleRemoveGasto(${gasto.id})" class="text-red-500 hover:text-red-700 transition-colors text-xs">🗑️</button>
                                                                     </div>
                                                                 </div>
