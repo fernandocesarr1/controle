@@ -6,17 +6,19 @@
     <title>Controle Orçamentário Familiar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     
+    <!-- SheetJS para exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
+    <!-- Chart.js para gráficos -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f3f4f6;
         }
         
         @keyframes float {
@@ -29,39 +31,36 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .float-animation { animation: float 6s ease-in-out infinite; }
-        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
         
-        /* Ajuste para garantir que o gráfico se expanda */
-        .chart-container {
-            height: 400px;
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
         }
     </style>
 </head>
-<body>
-    <div id="root">
-        </div>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+    <div id="root"></div>
 
     <script>
-        // Sua configuração do Firebase (agora no local correto)
+        // ⚠️ CONFIGURAÇÃO DO FIREBASE - SUBSTITUA COM SUAS CREDENCIAIS
         const firebaseConfig = {
-          apiKey: "AIzaSyAgopSuSjeQ26UL85eYb11w4BbbNtBg5QE",
-          authDomain: "orcamento-familiar-dc2e6.firebaseapp.com",
-          projectId: "orcamento-familiar-dc2e6",
-          storageBucket: "orcamento-familiar-dc2e6.firebasestorage.app",
-          messagingSenderId: "21809188621",
-          appId: "1:21809188621:web:103d45c3353106ebf5aa44",
-          measurementId: "G-4E95DZRK3F"
+            apiKey: "SUA_API_KEY_AQUI",
+            authDomain: "SEU_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://SEU_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_PROJECT_ID.appspot.com",
+            messagingSenderId: "SEU_MESSAGING_ID",
+            appId: "SEU_APP_ID"
         };
 
-        // Inicializar Firebase (Usando a versão 'compat' carregada pelo CDN)
+        // Inicializar Firebase
         let database;
         let isFirebaseInitialized = false;
 
         try {
-            // Verifica se a chave foi configurada antes de inicializar
             if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
-                // Esta linha inicializa o Firebase corretamente, usando o objeto global 'firebase'
                 firebase.initializeApp(firebaseConfig);
                 database = firebase.database();
                 isFirebaseInitialized = true;
@@ -90,6 +89,9 @@
             showEditNames: false,
             selectedCategory: '',
             selectedYear: new Date().getFullYear(),
+            selectedMonth: new Date().getMonth(),
+            dashboardYear: new Date().getFullYear(),
+            dashboardMonth: new Date().getMonth(),
             formData: {
                 tipo: 'fixo',
                 categoria: '',
@@ -254,14 +256,44 @@
 
         function calcularTotalCategoria(categoria, tipo) {
             return state.gastos
-                .filter(g => g.categoria === categoria && g.tipo === tipo)
+                .filter(g => {
+                    const dataGasto = new Date(g.data + 'T00:00:00');
+                    return g.categoria === categoria && 
+                           g.tipo === tipo && 
+                           dataGasto.getMonth() === state.dashboardMonth && 
+                           dataGasto.getFullYear() === state.dashboardYear;
+                })
                 .reduce((sum, g) => sum + g.valor, 0);
         }
 
         function calcularTotalPorPessoa(pessoa) {
             return state.gastos
-                .filter(g => g.responsavel === pessoa)
+                .filter(g => {
+                    const dataGasto = new Date(g.data + 'T00:00:00');
+                    return g.responsavel === pessoa && 
+                           dataGasto.getMonth() === state.dashboardMonth && 
+                           dataGasto.getFullYear() === state.dashboardYear;
+                })
                 .reduce((sum, g) => sum + g.valor, 0);
+        }
+
+        function updateDashboardDate(mes, ano) {
+            state.dashboardMonth = parseInt(mes);
+            state.dashboardYear = parseInt(ano);
+            render();
+        }
+
+        function getAnosDashboard() {
+            const anos = new Set();
+            state.gastos.forEach(gasto => {
+                const ano = new Date(gasto.data + 'T00:00:00').getFullYear();
+                anos.add(ano);
+            });
+            const anosArray = Array.from(anos).sort((a, b) => b - a);
+            if (anosArray.length === 0) {
+                anosArray.push(new Date().getFullYear());
+            }
+            return anosArray;
         }
 
         function verificarLimite(categoria, total) {
@@ -379,8 +411,14 @@
         }
 
         function getTotals() {
-            const totalFixos = state.gastos.filter(g => g.tipo === 'fixo').reduce((sum, g) => sum + g.valor, 0);
-            const totalVariaveis = state.gastos.filter(g => g.tipo === 'variavel').reduce((sum, g) => sum + g.valor, 0);
+            const gastosDoMes = state.gastos.filter(g => {
+                const dataGasto = new Date(g.data + 'T00:00:00');
+                return dataGasto.getMonth() === state.dashboardMonth && 
+                       dataGasto.getFullYear() === state.dashboardYear;
+            });
+            
+            const totalFixos = gastosDoMes.filter(g => g.tipo === 'fixo').reduce((sum, g) => sum + g.valor, 0);
+            const totalVariaveis = gastosDoMes.filter(g => g.tipo === 'variavel').reduce((sum, g) => sum + g.valor, 0);
             return { totalFixos, totalVariaveis, totalGeral: totalFixos + totalVariaveis };
         }
 
@@ -689,20 +727,6 @@
                                 >
                                     ✨ Entrar no Sistema
                                 </button>
-
-                                <div class="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5 border-2 border-blue-100">
-                                    <div class="flex items-start">
-                                        <div class="text-2xl mr-3 mt-1">💡</div>
-                                        <div>
-                                            <p class="font-bold text-blue-900 mb-2">Primeira vez aqui?</p>
-                                            <p class="text-sm text-blue-800 mb-2">Use a senha padrão:</p>
-                                            <div class="bg-white px-4 py-2 rounded-lg inline-block border-2 border-blue-200">
-                                                <code class="text-blue-600 font-bold text-lg">familia2024</code>
-                                            </div>
-                                            <p class="text-xs text-blue-600 mt-3">💡 Você pode alterá-la depois nas configurações</p>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                         
@@ -716,8 +740,44 @@
 
         function renderDashboard() {
             const totals = getTotals();
+            const meses = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+            ];
+            const anosDashboard = getAnosDashboard();
+            
             return `
                 <div class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-md p-4">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <label class="text-sm font-semibold text-gray-700">📅 Período:</label>
+                            <div class="flex gap-3 flex-wrap">
+                                <select 
+                                    onchange="updateDashboardDate(state.dashboardMonth, this.value)"
+                                    class="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                                >
+                                    ${anosDashboard.map(ano => `
+                                        <option value="${ano}" ${ano === state.dashboardYear ? 'selected' : ''}>${ano}</option>
+                                    `).join('')}
+                                </select>
+                                <select 
+                                    onchange="updateDashboardDate(this.value, state.dashboardYear)"
+                                    class="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                                >
+                                    ${meses.map((mes, idx) => `
+                                        <option value="${idx}" ${idx === state.dashboardMonth ? 'selected' : ''}>${mes}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <button 
+                                onclick="updateDashboardDate(${new Date().getMonth()}, ${new Date().getFullYear()})"
+                                class="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                                Mês Atual
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="flex justify-end">
                         <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-all flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
                             <span class="text-xl">📊</span>Exportar para Excel
@@ -749,7 +809,12 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             ${state.nomes.map(nome => {
                                 const total = calcularTotalPorPessoa(nome);
-                                const quantidade = state.gastos.filter(g => g.responsavel === nome).length;
+                                const quantidade = state.gastos.filter(g => {
+                                    const dataGasto = new Date(g.data + 'T00:00:00');
+                                    return g.responsavel === nome && 
+                                           dataGasto.getMonth() === state.dashboardMonth && 
+                                           dataGasto.getFullYear() === state.dashboardYear;
+                                }).length;
                                 return `
                                     <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border-2 border-orange-200">
                                         <p class="text-sm text-orange-800 font-semibold">👤 ${nome}</p>
@@ -762,14 +827,14 @@
                     </div>
 
                     <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Gastos Fixos</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Gastos Fixos (${meses[state.dashboardMonth]} ${state.dashboardYear})</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             ${state.categoriasFixas.map(cat => {
                                 const total = calcularTotalCategoria(cat, 'fixo');
                                 return `
-                                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                        <p class="text-sm text-gray-600 font-medium">${cat}</p>
-                                        <p class="text-2xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
+                                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                        <p class="text-xs text-gray-600 font-medium">${cat}</p>
+                                        <p class="text-lg font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
                                     </div>
                                 `;
                             }).join('')}
@@ -777,7 +842,7 @@
                     </div>
 
                     <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Gastos Variáveis</h2>
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Gastos Variáveis (${meses[state.dashboardMonth]} ${state.dashboardYear})</h2>
                         <div class="space-y-4">
                             ${state.categoriasVariaveis.map(cat => {
                                 const total = calcularTotalCategoria(cat, 'variavel');
@@ -786,28 +851,28 @@
                                 const percentual = limite > 0 ? (total / limite) * 100 : 0;
                                 
                                 return `
-                                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                        <div class="flex justify-between items-start mb-2">
+                                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                        <div class="flex justify-between items-center mb-2">
                                             <div class="flex-1">
                                                 <p class="text-sm text-gray-600 font-medium">${cat}</p>
-                                                <p class="text-2xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
+                                                <p class="text-xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
                                             </div>
                                             <div class="text-right">
-                                                <input type="number" placeholder="Limite" value="${limite || ''}" onchange="handleSetLimite('${cat}', this.value)" class="w-28 px-3 py-1 border border-gray-300 rounded-md text-sm"/>
+                                                <input type="number" placeholder="Limite" value="${limite || ''}" onchange="handleSetLimite('${cat}', this.value)" class="w-24 px-2 py-1 border border-gray-300 rounded-md text-xs"/>
                                                 <p class="text-xs text-gray-500 mt-1">Limite</p>
                                             </div>
                                         </div>
                                         ${limite > 0 ? `
-                                            <div class="mt-3">
+                                            <div class="mt-2">
                                                 <div class="flex justify-between text-xs text-gray-600 mb-1">
                                                     <span>${percentual.toFixed(0)}% usado</span>
                                                     <span>R$ ${limite.toFixed(2)}</span>
                                                 </div>
-                                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                                    <div class="h-2 rounded-full transition-all ${status === 'danger' ? 'bg-red-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-green-500'}" style="width: ${Math.min(percentual, 100)}%"></div>
+                                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                                    <div class="h-3 rounded-full transition-all ${status === 'danger' ? 'bg-red-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-green-500'}" style="width: ${Math.min(percentual, 100)}%"></div>
                                                 </div>
-                                                ${status === 'danger' ? '<div class="flex items-center gap-2 mt-2 text-red-600 text-sm">⚠️ Limite atingido!</div>' : ''}
-                                                ${status === 'warning' ? '<div class="flex items-center gap-2 mt-2 text-yellow-600 text-sm">⚠️ Próximo do limite</div>' : ''}
+                                                ${status === 'danger' ? '<div class="flex items-center gap-1 mt-1 text-red-600 text-xs">⚠️ Limite atingido!</div>' : ''}
+                                                ${status === 'warning' ? '<div class="flex items-center gap-1 mt-1 text-yellow-600 text-xs">⚠️ Próximo do limite</div>' : ''}
                                             </div>
                                         ` : ''}
                                     </div>
@@ -895,7 +960,7 @@
                     <div class="bg-white rounded-xl shadow-md p-6">
                         <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Evolução Mensal de Gastos</h2>
                         <p class="text-sm text-gray-600 mb-6">Acompanhe os gastos totais e de cada pessoa ao longo do ano</p>
-                        <div class="chart-container"><canvas id="graficoMensal"></canvas></div>
+                        <div style="height: 400px;"><canvas id="graficoMensal"></canvas></div>
                     </div>
 
                     <div class="bg-white rounded-xl shadow-md p-6">
@@ -908,7 +973,7 @@
                                 ${todasCategorias.map(cat => `<option value="${cat}" ${cat === state.selectedCategory ? 'selected' : ''}>${cat}</option>`).join('')}
                             </select>
                         </div>
-                        <div class="chart-container"><canvas id="graficoCategoria"></canvas></div>
+                        <div style="height: 400px;"><canvas id="graficoCategoria"></canvas></div>
                     </div>
 
                     <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 border-2 border-blue-100">
@@ -947,39 +1012,90 @@
         }
 
         function renderHistorico() {
-            const sortedGastos = [...state.gastos].sort((a, b) => new Date(b.data) - new Date(a.data));
+            // Agrupar gastos por mês e ano
+            const gastosPorMes = {};
+            state.gastos.forEach(gasto => {
+                const data = new Date(gasto.data + 'T00:00:00');
+                const mesAno = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+                if (!gastosPorMes[mesAno]) {
+                    gastosPorMes[mesAno] = [];
+                }
+                gastosPorMes[mesAno].push(gasto);
+            });
+            
+            // Ordenar meses em ordem crescente (mais antigo primeiro)
+            const mesesOrdenados = Object.keys(gastosPorMes).sort();
             
             return `
                 <div class="bg-white rounded-xl shadow-md p-6">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Histórico de Gastos</h2>
-                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transform hover:scale-105">
-                            <span class="text-xl">📊</span>Exportar Excel
+                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold text-sm shadow-md">
+                            <span>📊</span>Exportar Excel
                         </button>
                     </div>
-                    ${sortedGastos.length === 0 ? `
+                    ${state.gastos.length === 0 ? `
                         <p class="text-center text-gray-500 py-8">Nenhum gasto registrado ainda</p>
                     ` : `
-                        <div class="space-y-3">
-                            ${sortedGastos.map(gasto => `
-                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                                    <div class="flex-1">
-                                        <div class="flex items-center gap-3 flex-wrap">
-                                            <span class="px-2 py-1 rounded text-xs font-semibold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}">
-                                                ${gasto.tipo === 'fixo' ? 'Fixo' : 'Variável'}
-                                            </span>
-                                            <span class="font-semibold text-gray-800">${gasto.categoria}</span>
-                                            <span class="px-2 py-1 rounded text-xs font-semibold bg-orange-100 text-orange-700">👤 ${gasto.responsavel}</span>
+                        <div class="space-y-6">
+                            ${mesesOrdenados.map(mesAno => {
+                                const [ano, mes] = mesAno.split('-');
+                                const nomeMes = new Date(ano, parseInt(mes) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                const gastosDoMes = gastosPorMes[mesAno];
+                                
+                                // Agrupar por categoria
+                                const gastosPorCategoria = {};
+                                gastosDoMes.forEach(g => {
+                                    if (!gastosPorCategoria[g.categoria]) {
+                                        gastosPorCategoria[g.categoria] = [];
+                                    }
+                                    gastosPorCategoria[g.categoria].push(g);
+                                });
+                                
+                                const totalMes = gastosDoMes.reduce((sum, g) => sum + g.valor, 0);
+                                
+                                return `
+                                    <div class="border-l-4 border-blue-500 pl-4">
+                                        <div class="flex justify-between items-center mb-3">
+                                            <h3 class="text-lg font-bold text-gray-800 capitalize">${nomeMes}</h3>
+                                            <span class="text-lg font-bold text-blue-600">R$ ${totalMes.toFixed(2)}</span>
                                         </div>
-                                        <p class="text-sm text-gray-600 mt-1">${gasto.descricao || 'Sem descrição'}</p>
-                                        <p class="text-xs text-gray-500 mt-1">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                                        <div class="space-y-3">
+                                            ${Object.keys(gastosPorCategoria).sort().map(categoria => {
+                                                const gastosCategoria = gastosPorCategoria[categoria];
+                                                const totalCategoria = gastosCategoria.reduce((sum, g) => sum + g.valor, 0);
+                                                
+                                                return `
+                                                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                                        <div class="flex justify-between items-center mb-2">
+                                                            <span class="font-semibold text-gray-700 text-sm">${categoria}</span>
+                                                            <span class="font-bold text-gray-800">R$ ${totalCategoria.toFixed(2)}</span>
+                                                        </div>
+                                                        <div class="space-y-2">
+                                                            ${gastosCategoria.map(gasto => `
+                                                                <div class="flex items-center justify-between text-sm bg-white p-2 rounded">
+                                                                    <div class="flex items-center gap-2 flex-1">
+                                                                        <span class="px-2 py-0.5 rounded text-xs font-semibold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}">
+                                                                            ${gasto.tipo === 'fixo' ? 'F' : 'V'}
+                                                                        </span>
+                                                                        <span class="text-xs text-gray-600">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                                                        <span class="px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${gasto.responsavel}</span>
+                                                                        <span class="text-gray-600 text-xs truncate">${gasto.descricao || '-'}</span>
+                                                                    </div>
+                                                                    <div class="flex items-center gap-2">
+                                                                        <span class="font-semibold text-gray-800">R$ ${gasto.valor.toFixed(2)}</span>
+                                                                        <button onclick="handleRemoveGasto(${gasto.id})" class="text-red-500 hover:text-red-700 transition-colors text-xs">🗑️</button>
+                                                                    </div>
+                                                                </div>
+                                                            `).join('')}
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                        </div>
                                     </div>
-                                    <div class="flex items-center gap-4">
-                                        <span class="text-xl font-bold text-gray-800">R$ ${gasto.valor.toFixed(2)}</span>
-                                        <button onclick="handleRemoveGasto(${gasto.id})" class="text-red-500 hover:text-red-700 transition-colors">🗑️</button>
-                                    </div>
-                                </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     `}
                 </div>
