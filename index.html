@@ -12,65 +12,88 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    
+
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            /* Usando um stack de fontes moderno e limpo */
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        
+        /* Estilo de foco aprimorado para inputs */
+        input:focus, select:focus, textarea:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* ring-blue-500/50 */
+            border-color: #3b82f6; /* blue-500 */
         }
         
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
+            50% { transform: translateY(-10px); } /* Flutuação mais suave */
         }
         
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); } /* Entrada mais suave */
             to { opacity: 1; transform: translateY(0); }
         }
         
         .float-animation {
-            animation: float 3s ease-in-out infinite;
+            animation: float 4s ease-in-out infinite;
         }
         
         .fade-in {
-            animation: fadeIn 0.6s ease-out;
+            animation: fadeIn 0.4s ease-out; /* Fade-in mais rápido */
+        }
+
+        /* Custom scrollbar para um toque técnico */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* slate-300 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; /* slate-100 */
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+<body class="bg-gray-100 min-h-screen">
     <div id="root"></div>
 
     <script>
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-          apiKey: "AIzaSyAgopSuSjeQ26UL85eYb11w4BbbNtBg5QE",
-          authDomain: "orcamento-familiar-dc2e6.firebaseapp.com",
-          projectId: "orcamento-familiar-dc2e6",
-          storageBucket: "orcamento-familiar-dc2e6.firebasestorage.app",
-          messagingSenderId: "21809188621",
-          appId: "1:21809188621:web:103d45c3353106ebf5aa44",
-          measurementId: "G-4E95DZRK3F"
-        };
+       // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAgopSuSjeQ26UL85eYb11w4BbbNtBg5QE",
+  authDomain: "orcamento-familiar-dc2e6.firebaseapp.com",
+  projectId: "orcamento-familiar-dc2e6",
+  storageBucket: "orcamento-familiar-dc2e6.firebasestorage.app",
+  messagingSenderId: "21809188621",
+  appId: "1:21809188621:web:103d45c3353106ebf5aa44",
+  measurementId: "G-4E95DZRK3F"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
         // Inicializar Firebase
         let database;
         let isFirebaseInitialized = false;
 
-        // Tenta inicializar o Firebase. O bloco try/catch garante que mesmo que
-        // haja um erro aqui, o código continue a execução para mostrar a tela de login.
         try {
-            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
+            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
                 firebase.initializeApp(firebaseConfig);
                 database = firebase.database();
                 isFirebaseInitialized = true;
-                console.log("Firebase inicializado com sucesso.");
-            } else {
-                console.warn("Firebase não inicializado. Usando valores padrões.");
             }
         } catch (error) {
-            console.error("ERRO FATAL ao inicializar Firebase:", error);
-            // Garante que o estado reflita a falha.
-            isFirebaseInitialized = false;
+            console.error("Erro ao inicializar Firebase:", error);
         }
 
         // Estado da aplicação
@@ -124,7 +147,6 @@
             if (!isFirebaseInitialized) return;
             database.ref('auth/passwordHash').once('value', (snapshot) => {
                 if (!snapshot.exists()) {
-                    // Define a senha padrão se não houver nenhuma
                     database.ref('auth/passwordHash').set(simpleHash(DEFAULT_PASSWORD));
                 }
             });
@@ -138,21 +160,9 @@
             }
 
             if (!isFirebaseInitialized) {
-                // Permite login com senha padrão se o Firebase não estiver configurado
-                // Isso é útil para testar a interface sem o backend
-                if (state.loginPassword === DEFAULT_PASSWORD) {
-                    state.isAuthenticated = true;
-                    state.showLogin = false;
-                    state.loginError = 'Atenção: Firebase não configurado. Dados não serão salvos.';
-                    state.loginPassword = '';
-                    loadFromFirebase();
-                    render();
-                    return;
-                } else {
-                    state.loginError = 'Senha incorreta e Firebase não configurado';
-                    render();
-                    return;
-                }
+                state.loginError = 'Firebase não configurado';
+                render();
+                return;
             }
 
             const passwordHash = simpleHash(state.loginPassword);
@@ -175,11 +185,6 @@
         }
 
         function handleChangePassword() {
-            if (!isFirebaseInitialized) {
-                state.passwordError = 'Firebase não configurado. Não é possível alterar a senha.';
-                render();
-                return;
-            }
             if (!state.newPassword || !state.confirmPassword) {
                 state.passwordError = 'Preencha todos os campos';
                 render();
@@ -260,8 +265,6 @@
                 const data = snapshot.val();
                 if (data) {
                     state.nomes = data;
-                    // Atualiza o responsável padrão no formulário
-                    state.formData.responsavel = data[0] || 'Fernando'; 
                     render();
                 }
             });
@@ -298,15 +301,10 @@
 
         function handleAddCategory() {
             if (state.newCategoryName.trim()) {
-                const newCategoryName = state.newCategoryName.trim();
                 if (state.categoryType === 'fixo') {
-                    if (!state.categoriasFixas.includes(newCategoryName)) {
-                        state.categoriasFixas.push(newCategoryName);
-                    }
+                    state.categoriasFixas.push(state.newCategoryName);
                 } else {
-                    if (!state.categoriasVariaveis.includes(newCategoryName)) {
-                        state.categoriasVariaveis.push(newCategoryName);
-                    }
+                    state.categoriasVariaveis.push(state.newCategoryName);
                 }
                 syncWithFirebase();
                 state.newCategoryName = '';
@@ -349,24 +347,7 @@
         }
 
         function handleSaveNames() {
-            const newName1 = state.tempNome1.trim() || state.nomes[0];
-            const newName2 = state.tempNome2.trim() || state.nomes[1];
-
-            if (newName1 === newName2) {
-                alert('Os nomes devem ser diferentes.');
-                return;
-            }
-
-            state.nomes = [newName1, newName2];
-            // Atualiza o responsável em todos os gastos antigos
-            state.gastos = state.gastos.map(g => {
-                if (g.responsavel !== state.nomes[0] && g.responsavel !== state.nomes[1]) {
-                    g.responsavel = newName1; // Define um nome padrão se o antigo não existir mais
-                    if (isFirebaseInitialized) saveGastoToFirebase(g);
-                }
-                return g;
-            });
-
+            state.nomes = [state.tempNome1, state.tempNome2];
             syncWithFirebase();
             state.showEditNames = false;
             render();
@@ -445,7 +426,7 @@
                     dadosMensais.total[mes] += gasto.valor;
                     if (gasto.responsavel === state.nomes[0]) {
                         dadosMensais.pessoa1[mes] += gasto.valor;
-                    } else if (gasto.responsavel === state.nomes[1]) {
+                    } else {
                         dadosMensais.pessoa2[mes] += gasto.valor;
                     }
                 }
@@ -470,7 +451,7 @@
         }
 
         function getAnosDisponiveis() {
-            const anos = new Set([new Date().getFullYear()]);
+            const anos = new Set();
             state.gastos.forEach(gasto => {
                 const ano = new Date(gasto.data + 'T00:00:00').getFullYear();
                 anos.add(ano);
@@ -497,8 +478,8 @@
                         {
                             label: 'Total Geral',
                             data: dados.total,
-                            borderColor: 'rgb(59, 130, 246)',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderColor: 'rgb(37, 99, 235)', /* blue-600 */
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
                             borderWidth: 3,
                             tension: 0.4,
                             fill: true,
@@ -508,8 +489,8 @@
                         {
                             label: state.nomes[0],
                             data: dados.pessoa1,
-                            borderColor: 'rgb(251, 146, 60)',
-                            backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                            borderColor: 'rgb(249, 115, 22)', /* orange-600 */
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
                             borderWidth: 2,
                             tension: 0.4,
                             fill: false,
@@ -519,8 +500,8 @@
                         {
                             label: state.nomes[1],
                             data: dados.pessoa2,
-                            borderColor: 'rgb(168, 85, 247)',
-                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            borderColor: 'rgb(124, 58, 237)', /* violet-600 */
+                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
                             borderWidth: 2,
                             tension: 0.4,
                             fill: false,
@@ -570,7 +551,7 @@
 
         function criarGraficoCategoria() {
             const canvas = document.getElementById('graficoCategoria');
-            if (!canvas || !state.selectedCategory) return;
+            if (!canvas) return;
 
             if (state.charts.categoria) {
                 state.charts.categoria.destroy();
@@ -586,14 +567,14 @@
                     datasets: [{
                         label: state.selectedCategory,
                         data: dados.valores,
-                        borderColor: 'rgb(34, 197, 94)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                        borderColor: 'rgb(16, 185, 129)', /* emerald-500 */
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
                         borderWidth: 3,
                         tension: 0.4,
                         fill: true,
                         pointRadius: 6,
                         pointHoverRadius: 8,
-                        pointBackgroundColor: 'rgb(34, 197, 94)',
+                        pointBackgroundColor: 'rgb(16, 185, 129)',
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2
                     }]
@@ -648,45 +629,22 @@
 
         function renderLogin() {
             return `
-                <div class="min-h-screen flex items-center justify-center px-4 py-8 relative overflow-hidden">
-                    <div class="absolute inset-0 overflow-hidden">
-                        <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-                        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style="animation-delay: 1s;"></div>
-                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style="animation-delay: 2s;"></div>
-                    </div>
+                <div class="min-h-screen flex items-center justify-center bg-gray-900 px-4 py-8 relative overflow-hidden">
                     
-                    <div class="absolute top-20 left-10 float-animation opacity-20">
-                        <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
-                            <circle cx="30" cy="30" r="25" fill="#667eea"/>
-                        </svg>
-                    </div>
-                    <div class="absolute bottom-20 right-10 float-animation opacity-20" style="animation-delay: 1s;">
-                        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-                            <circle cx="40" cy="40" r="35" fill="#764ba2"/>
-                        </svg>
+                    <div class="absolute inset-0 overflow-hidden opacity-10">
+                        <div class="absolute inset-0 bg-[length:100px_100px] bg-repeat" style="background-image: radial-gradient(#2d3748 1px, transparent 1px);"></div>
+                        <div class="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-blue-900 opacity-80 mix-blend-multiply"></div>
                     </div>
                     
                     <div class="relative z-10 w-full max-w-md fade-in">
-                        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
-                            <div class="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-8 text-center relative">
-                                <div class="absolute inset-0 bg-black opacity-10"></div>
+                        <div class="bg-white rounded-xl shadow-2xl overflow-hidden transform transition-all hover:scale-[1.01]">
+                            <div class="bg-gray-800 p-8 text-center relative">
                                 <div class="relative z-10">
-                                    <div class="inline-block mb-4">
-                                        <div class="relative">
-                                            <div class="absolute inset-0 bg-white rounded-full blur-xl opacity-50"></div>
-                                            <svg class="relative" width="120" height="120" viewBox="0 0 120 120" fill="none">
-                                                <rect x="20" y="35" width="80" height="60" rx="8" fill="white" opacity="0.9"/>
-                                                <circle cx="60" cy="65" r="15" fill="#667eea"/>
-                                                <circle cx="60" cy="65" r="8" fill="white"/>
-                                                <rect x="54" y="65" width="12" height="15" fill="white"/>
-                                                <circle cx="35" cy="25" r="12" fill="#FFD700" opacity="0.9"/>
-                                                <circle cx="85" cy="30" r="10" fill="#FFD700" opacity="0.8"/>
-                                                <circle cx="45" cy="15" r="8" fill="#FFD700" opacity="0.7"/>
-                                            </svg>
-                                        </div>
+                                    <div class="inline-block mb-4 p-4 rounded-full bg-blue-600 shadow-xl">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8c-.682 0-1.392-.204-2.049-.699m1.34 7.641c.682 0 1.392.204 2.049.699m-6.398 0c1.071 0 2.042.083 2.99.213" /><path stroke-linecap="round" stroke-linejoin="round" d="M14 12H10"/></svg>
                                     </div>
-                                    <h1 class="text-3xl font-bold text-white mb-2">Bem-vindo! 👋</h1>
-                                    <p class="text-white text-opacity-90 text-sm">Controle Orçamentário Familiar</p>
+                                    <h1 class="text-3xl font-extrabold text-white mb-2">Acesso ao Painel</h1>
+                                    <p class="text-gray-300 text-sm">Controle Orçamentário Familiar - V2.0</p>
                                 </div>
                             </div>
                             
@@ -694,35 +652,41 @@
                                 ${!isFirebaseInitialized ? `
                                     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg mb-6">
                                         <div class="flex items-start">
-                                            <div class="text-2xl mr-3">⚠️</div>
+                                            <div class="text-2xl mr-3 text-yellow-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.39 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                            </div>
                                             <div>
-                                                <p class="font-bold text-yellow-800">Modo de Demonstração (Firebase Inativo)</p>
-                                                <p class="text-sm text-yellow-700 mt-1">Os dados não serão salvos. Configure o Firebase no código para usar o sistema completo.</p>
+                                                <p class="font-bold text-yellow-800">Firebase não configurado</p>
+                                                <p class="text-sm text-yellow-700 mt-1">Configure o Firebase no código para usar o sistema.</p>
                                             </div>
                                         </div>
                                     </div>
                                 ` : ''}
 
                                 <div class="mb-6">
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">🔐 Digite sua senha</label>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">🔑 Senha de Acesso</label>
                                     <div class="relative">
                                         <input
                                             type="password"
                                             value="${state.loginPassword}"
                                             onchange="state.loginPassword = this.value; state.loginError = ''; render();"
                                             onkeypress="if(event.key === 'Enter') handleLogin()"
-                                            placeholder="••••••••"
-                                            class="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all"
+                                            placeholder="Mínimo de 6 caracteres"
+                                            class="w-full px-5 py-3 pr-12 border-2 border-gray-300 rounded-lg transition-all duration-150"
                                             autofocus
                                         />
-                                        <div class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">🔒</div>
+                                        <div class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v3h8z"/></svg>
+                                        </div>
                                     </div>
                                 </div>
 
                                 ${state.loginError ? `
-                                    <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg mb-6 fade-in">
+                                    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6 fade-in">
                                         <div class="flex items-center">
-                                            <div class="text-xl mr-3">❌</div>
+                                            <div class="text-xl mr-3 text-red-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            </div>
                                             <p class="text-red-700 font-medium">${state.loginError}</p>
                                         </div>
                                     </div>
@@ -730,28 +694,30 @@
 
                                 <button
                                     onclick="handleLogin()"
-                                    class="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white py-4 rounded-xl font-bold text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                                    class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-lg transform hover:scale-[1.005] transition-all duration-200 flex items-center justify-center gap-2"
                                 >
-                                    ✨ Entrar no Sistema
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                                    Acessar Painel
                                 </button>
 
-                                <div class="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5 border-2 border-blue-100">
+                                <div class="mt-8 bg-blue-50 rounded-xl p-5 border-2 border-blue-200">
                                     <div class="flex items-start">
-                                        <div class="text-2xl mr-3 mt-1">💡</div>
+                                        <div class="text-2xl mr-3 mt-1 text-blue-500">💡</div>
                                         <div>
-                                            <p class="font-bold text-blue-900 mb-2">Senha Padrão:</p>
+                                            <p class="font-bold text-blue-900 mb-2">Primeira vez aqui?</p>
+                                            <p class="text-sm text-blue-800 mb-2">Use a senha padrão:</p>
                                             <div class="bg-white px-4 py-2 rounded-lg inline-block border-2 border-blue-200">
-                                                <code class="text-blue-600 font-bold text-lg">${DEFAULT_PASSWORD}</code>
+                                                <code class="text-blue-600 font-bold text-lg">familia2024</code>
                                             </div>
-                                            <p class="text-xs text-blue-600 mt-3">💡 Altere-a nas configurações após o primeiro acesso.</p>
+                                            <p class="text-xs text-blue-600 mt-3">💡 Você pode alterá-la depois nas configurações</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="text-center mt-6 text-gray-600 text-sm">
-                            <p>🔒 Seus dados estão seguros e sincronizados</p>
+                        <div class="text-center mt-6 text-gray-400 text-sm">
+                            <p>🔒 Sistema de Controle Financeiro V2.0</p>
                         </div>
                     </div>
                 </div>
@@ -761,68 +727,89 @@
         function renderDashboard() {
             const totals = getTotals();
             return `
-                <div class="space-y-6">
+                <div class="space-y-8">
                     <div class="flex justify-end">
-                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-all flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
-                            <span class="text-xl">📊</span>Exportar para Excel
+                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all flex items-center gap-2 font-semibold shadow-md hover:shadow-xl transform hover:scale-[1.01]">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Exportar Dados
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
-                            <p class="text-blue-100 text-sm">Total Geral</p>
-                            <p class="text-3xl font-bold mt-1">R$ ${totals.totalGeral.toFixed(2)}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white rounded-xl shadow-xl border-l-4 border-blue-600 p-6">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-semibold text-blue-600 uppercase">Total Geral</p>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8c-.682 0-1.392-.204-2.049-.699m1.34 7.641c.682 0 1.392.204 2.049.699m-6.398 0c1.071 0 2.042.083 2.99.213" /></svg>
+                            </div>
+                            <p class="text-4xl font-extrabold text-gray-900 mt-2">R$ ${totals.totalGeral.toFixed(2)}</p>
+                            <p class="text-xs text-gray-500 mt-1">Soma de fixos e variáveis</p>
                         </div>
-                        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
-                            <p class="text-green-100 text-sm">Gastos Fixos</p>
-                            <p class="text-3xl font-bold mt-1">R$ ${totals.totalFixos.toFixed(2)}</p>
+                        <div class="bg-white rounded-xl shadow-xl border-l-4 border-green-600 p-6">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-semibold text-green-600 uppercase">Gastos Fixos</p>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 14h.01M12 6V4m0 0V3m0 1h2m-2 0H10m-3 3H5m0 0v14a2 2 0 002 2h10a2 2 0 002-2V7H7z"/></svg>
+                            </div>
+                            <p class="text-4xl font-extrabold text-gray-900 mt-2">R$ ${totals.totalFixos.toFixed(2)}</p>
+                            <p class="text-xs text-gray-500 mt-1">Despesas recorrentes</p>
                         </div>
-                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                            <p class="text-purple-100 text-sm">Gastos Variáveis</p>
-                            <p class="text-3xl font-bold mt-1">R$ ${totals.totalVariaveis.toFixed(2)}</p>
+                        <div class="bg-white rounded-xl shadow-xl border-l-4 border-purple-600 p-6">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-semibold text-purple-600 uppercase">Gastos Variáveis</p>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10m0 0v10m0-10L7 17M7 7l10 10m-3-4a8 8 0 100-16 8 8 0 000 16z"/></svg>
+                            </div>
+                            <p class="text-4xl font-extrabold text-gray-900 mt-2">R$ ${totals.totalVariaveis.toFixed(2)}</p>
+                            <p class="text-xs text-gray-500 mt-1">Despesas não recorrentes</p>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold text-gray-800">Gastos por Pessoa</h2>
-                            <button onclick="openEditNames()" class="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                                👤 Editar Nomes
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-4 border-b pb-4">
+                            <h2 class="text-2xl font-bold text-gray-800">Responsabilidade Financeira</h2>
+                            <button onclick="openEditNames()" class="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 p-2 rounded-lg hover:bg-blue-50 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                Editar Nomes
                             </button>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             ${state.nomes.map(nome => {
                                 const total = calcularTotalPorPessoa(nome);
                                 const quantidade = state.gastos.filter(g => g.responsavel === nome).length;
+                                const color = nome === state.nomes[0] ? 'indigo' : 'pink';
                                 return `
-                                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border-2 border-orange-200">
-                                        <p class="text-sm text-orange-800 font-semibold">👤 ${nome}</p>
-                                        <p class="text-2xl font-bold text-orange-900 mt-1">R$ ${total.toFixed(2)}</p>
-                                        <p class="text-xs text-orange-700 mt-1">${quantidade} gasto${quantidade !== 1 ? 's' : ''}</p>
+                                    <div class="bg-white rounded-lg p-5 border-2 border-gray-200 shadow-sm hover:shadow-lg transition-shadow">
+                                        <p class="text-base text-gray-700 font-semibold flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-${color}-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            ${nome}
+                                        </p>
+                                        <p class="text-3xl font-bold text-gray-900 mt-2">R$ ${total.toFixed(2)}</p>
+                                        <p class="text-xs text-gray-500 mt-1">${quantidade} despesa${quantidade !== 1 ? 's' : ''} registradas</p>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Gastos Fixos</h2>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Despesas Fixas</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             ${state.categoriasFixas.map(cat => {
                                 const total = calcularTotalCategoria(cat, 'fixo');
                                 return `
-                                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                        <p class="text-sm text-gray-600 font-medium">${cat}</p>
-                                        <p class="text-2xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
+                                    <div class="bg-green-50 rounded-lg p-4 border border-green-200 hover:bg-green-100 transition-colors">
+                                        <p class="text-sm text-green-700 font-semibold flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                            ${cat}
+                                        </p>
+                                        <p class="text-2xl font-bold text-green-800 mt-1">R$ ${total.toFixed(2)}</p>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">Gastos Variáveis</h2>
-                        <div class="space-y-4">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Despesas Variáveis (Metas)</h2>
+                        <div class="space-y-6">
                             ${state.categoriasVariaveis.map(cat => {
                                 const total = calcularTotalCategoria(cat, 'variavel');
                                 const limite = state.limites[cat] || 0;
@@ -830,28 +817,31 @@
                                 const percentual = limite > 0 ? (total / limite) * 100 : 0;
                                 
                                 return `
-                                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                        <div class="flex justify-between items-start mb-2">
+                                    <div class="bg-white rounded-lg p-5 border-2 border-purple-200 shadow-md hover:border-purple-300 transition-all">
+                                        <div class="flex justify-between items-start mb-3">
                                             <div class="flex-1">
-                                                <p class="text-sm text-gray-600 font-medium">${cat}</p>
-                                                <p class="text-2xl font-bold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
+                                                <p class="text-lg text-purple-700 font-bold">${cat}</p>
+                                                <p class="text-3xl font-extrabold text-gray-800 mt-1">R$ ${total.toFixed(2)}</p>
                                             </div>
                                             <div class="text-right">
-                                                <input type="number" placeholder="Limite" value="${limite || ''}" onchange="handleSetLimite('${cat}', this.value)" class="w-28 px-3 py-1 border border-gray-300 rounded-md text-sm"/>
-                                                <p class="text-xs text-gray-500 mt-1">Limite</p>
+                                                <label class="block text-xs font-medium text-gray-500 mb-1">Definir Meta (R$)</label>
+                                                <input type="number" step="0.01" placeholder="0.00" value="${limite || ''}" onchange="handleSetLimite('${cat}', this.value)" class="w-28 px-3 py-1 border-2 border-gray-300 rounded-lg text-sm transition-all duration-150"/>
                                             </div>
                                         </div>
                                         ${limite > 0 ? `
-                                            <div class="mt-3">
-                                                <div class="flex justify-between text-xs text-gray-600 mb-1">
-                                                    <span>${percentual.toFixed(0)}% usado</span>
-                                                    <span>R$ ${limite.toFixed(2)}</span>
+                                            <div class="mt-3 pt-3 border-t border-gray-100">
+                                                <div class="flex justify-between text-xs text-gray-600 mb-2 font-medium">
+                                                    <span class="p-1 rounded-full ${percentual >= 100 ? 'bg-red-100 text-red-700' : percentual >= 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">${percentual.toFixed(0)}% usado</span>
+                                                    <span class="font-bold text-gray-700">Meta: R$ ${limite.toFixed(2)}</span>
                                                 </div>
-                                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                                    <div class="h-2 rounded-full transition-all ${status === 'danger' ? 'bg-red-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-green-500'}" style="width: ${Math.min(percentual, 100)}%"></div>
+                                                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                                    <div 
+                                                        class="h-full rounded-full transition-all duration-500 ease-in-out ${status === 'danger' ? 'bg-red-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-green-500'}" 
+                                                        style="width: ${Math.min(percentual, 100)}%"
+                                                    ></div>
                                                 </div>
-                                                ${status === 'danger' ? '<div class="flex items-center gap-2 mt-2 text-red-600 text-sm">⚠️ Limite atingido!</div>' : ''}
-                                                ${status === 'warning' ? '<div class="flex items-center gap-2 mt-2 text-yellow-600 text-sm">⚠️ Próximo do limite</div>' : ''}
+                                                ${status === 'danger' ? '<div class="flex items-center gap-1 mt-2 text-red-600 text-sm font-semibold"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.39 16c-.77 1.333.192 3 1.732 3z"/></svg> Limite Orçamentário Atingido!</div>' : ''}
+                                                ${status === 'warning' ? '<div class="flex items-center gap-1 mt-2 text-yellow-600 text-sm font-semibold"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.39 16c-.77 1.333.192 3 1.732 3z"/></svg> Atenção: Próximo do Limite</div>' : ''}
                                             </div>
                                         ` : ''}
                                     </div>
@@ -865,47 +855,61 @@
 
         function renderAddGasto() {
             return `
-                <div class="bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Adicionar Gasto</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Quem fez o gasto?</label>
-                            <select onchange="updateFormData('responsavel', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                                ${state.nomes.map(nome => `<option value="${nome}" ${state.formData.responsavel === nome ? 'selected' : ''}>${nome}</option>`).join('')}
-                            </select>
+                <div class="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4">➕ Registrar Nova Despesa</h2>
+                    <div class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Responsável</label>
+                                <select onchange="updateFormData('responsavel', this.value)" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150">
+                                    ${state.nomes.map(nome => `<option value="${nome}" ${state.formData.responsavel === nome ? 'selected' : ''}>${nome}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Tipo de Gasto</label>
+                                <select onchange="updateFormData('tipo', this.value); updateFormData('categoria', '')" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150">
+                                    <option value="fixo" ${state.formData.tipo === 'fixo' ? 'selected' : ''}>Fixo (Recorrente)</option>
+                                    <option value="variavel" ${state.formData.tipo === 'variavel' ? 'selected' : ''}>Variável (Pontual)</option>
+                                </select>
+                            </div>
                         </div>
+                        
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Gasto</label>
-                            <select onchange="updateFormData('tipo', this.value); updateFormData('categoria', '')" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                                <option value="fixo" ${state.formData.tipo === 'fixo' ? 'selected' : ''}>Fixo</option>
-                                <option value="variavel" ${state.formData.tipo === 'variavel' ? 'selected' : ''}>Variável</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
-                            <select onchange="updateFormData('categoria', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Categoria</label>
+                            <select onchange="updateFormData('categoria', this.value)" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150">
                                 <option value="">Selecione uma categoria</option>
                                 ${(state.formData.tipo === 'fixo' ? state.categoriasFixas : state.categoriasVariaveis).map(cat => `
                                     <option value="${cat}" ${state.formData.categoria === cat ? 'selected' : ''}>${cat}</option>
                                 `).join('')}
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Valor (R$)</label>
-                            <input type="number" step="0.01" value="${state.formData.valor}" onchange="updateFormData('valor', this.value)" placeholder="0.00" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Valor (R$)</label>
+                                <input type="number" step="0.01" value="${state.formData.valor}" onchange="updateFormData('valor', this.value)" placeholder="0.00" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Data</label>
+                                <input type="date" value="${state.formData.data}" onchange="updateFormData('data', this.value)" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
+                            </div>
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Data</label>
-                            <input type="date" value="${state.formData.data}" onchange="updateFormData('data', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Descrição (Opcional)</label>
+                            <textarea onchange="updateFormData('descricao', this.value)" placeholder="Descreva o gasto (Ex: Supermercado do mês, presente de aniversário)" rows="3" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150">${state.formData.descricao}</textarea>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
-                            <textarea onchange="updateFormData('descricao', this.value)" placeholder="Descreva o gasto (opcional)" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg">${state.formData.descricao}</textarea>
-                        </div>
-                        <button onclick="handleAddGasto()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">➕ Adicionar Gasto</button>
+                        
+                        <button onclick="handleAddGasto()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-xl transform hover:scale-[1.005] transition-all flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Adicionar Gasto
+                        </button>
                     </div>
                     <div class="mt-6 pt-6 border-t border-gray-200">
-                        <button onclick="openAddCategory()" class="text-blue-600 hover:text-blue-700 font-medium text-sm">➕ Adicionar Nova Categoria</button>
+                        <button onclick="openAddCategory()" class="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-1 p-2 rounded-lg hover:bg-blue-50 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                            Adicionar Nova Categoria
+                        </button>
                     </div>
                 </div>
             `;
@@ -917,59 +921,55 @@
             
             if (state.gastos.length === 0) {
                 return `
-                    <div class="bg-white rounded-xl shadow-md p-8 text-center">
-                        <div class="text-6xl mb-4">📊</div>
+                    <div class="bg-white rounded-xl shadow-lg p-10 text-center">
+                        <div class="text-6xl mb-4 text-blue-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M5 12h14M7 16h10"/></svg>
+                        </div>
                         <h2 class="text-2xl font-bold text-gray-800 mb-2">Nenhum dado para visualizar</h2>
-                        <p class="text-gray-600">Adicione alguns gastos para ver os gráficos</p>
+                        <p class="text-gray-600">Adicione seus primeiros gastos na aba "Adicionar" para gerar os gráficos.</p>
                     </div>
                 `;
             }
-            
-            if (!state.selectedYear && anos.length > 0) {
-                state.selectedYear = anos[0];
-            }
-
-            if (!state.selectedCategory && todasCategorias.length > 0) {
-                state.selectedCategory = todasCategorias[0];
-            }
-
 
             return `
-                <div class="space-y-6">
-                    <div class="bg-white rounded-xl shadow-md p-4">
-                        <div class="flex items-center gap-4">
-                            <label class="text-sm font-semibold text-gray-700">📅 Ano:</label>
-                            <select onchange="updateSelectedYear(this.value)" class="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium">
-                                ${anos.map(ano => `<option value="${ano}" ${ano === state.selectedYear ? 'selected' : ''}>${ano}</option>`).join('')}
-                            </select>
-                        </div>
+                <div class="space-y-8">
+                    <div class="bg-white rounded-xl shadow-lg p-5 flex items-center gap-4 border-l-4 border-gray-200">
+                        <label class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-4 10h4m-4 4h4M3 21h18a2 2 0 002-2V7a2 2 0 00-2-2H3a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            Análise Temporal:
+                        </label>
+                        <select onchange="updateSelectedYear(this.value)" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium transition-all duration-150">
+                            ${anos.map(ano => `<option value="${ano}" ${ano === state.selectedYear ? 'selected' : ''}>${ano}</option>`).join('')}
+                        </select>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Evolução Mensal de Gastos</h2>
-                        <p class="text-sm text-gray-600 mb-6">Acompanhe os gastos totais e de cada pessoa ao longo do ano</p>
-                        <div style="height: 400px;"><canvas id="graficoMensal"></canvas></div>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                            Evolução Mensal de Gastos (${state.selectedYear})
+                        </h2>
+                        <p class="text-sm text-gray-600 mb-6">Acompanhe os gastos totais e por responsável ao longo do ano.</p>
+                        <div style="height: 450px;"><canvas id="graficoMensal"></canvas></div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
                             <div>
-                                <h2 class="text-xl font-bold text-gray-800 mb-2">📊 Análise por Categoria</h2>
-                                <p class="text-sm text-gray-600">Selecione uma categoria para ver a evolução mensal</p>
+                                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 8v.01M6 6h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2z"/></svg>
+                                    Análise Detalhada por Categoria
+                                </h2>
+                                <p class="text-sm text-gray-600">Selecione uma categoria para ver a evolução mensal.</p>
                             </div>
-                            <select onchange="updateSelectedCategory(this.value)" class="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium">
+                            <select onchange="updateSelectedCategory(this.value)" class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium transition-all duration-150">
                                 ${todasCategorias.map(cat => `<option value="${cat}" ${cat === state.selectedCategory ? 'selected' : ''}>${cat}</option>`).join('')}
                             </select>
                         </div>
-                        ${state.selectedCategory ? `
-                            <div style="height: 400px;"><canvas id="graficoCategoria"></canvas></div>
-                        ` : `
-                             <p class="text-center text-gray-500 py-8">Selecione uma categoria acima.</p>
-                        `}
+                        <div style="height: 450px;"><canvas id="graficoCategoria"></canvas></div>
                     </div>
 
-                    <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 border-2 border-blue-100">
-                        <h3 class="text-lg font-bold text-gray-800 mb-4">📋 Resumo de ${state.selectedYear}</h3>
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-inner p-6 border border-blue-200">
+                        <h3 class="text-xl font-bold text-gray-800 mb-5">Sumário Financeiro de ${state.selectedYear}</h3>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             ${(() => {
                                 const gastosAno = state.gastos.filter(g => new Date(g.data + 'T00:00:00').getFullYear() === state.selectedYear);
@@ -979,20 +979,20 @@
                                 const quantidadeGastos = gastosAno.length;
                                 
                                 return `
-                                    <div class="bg-white rounded-lg p-4 text-center">
-                                        <p class="text-sm text-gray-600 mb-1">Total do Ano</p>
+                                    <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                        <p class="text-sm text-gray-500 mb-1">Total Consolidado</p>
                                         <p class="text-xl font-bold text-blue-600">R$ ${totalAno.toFixed(2)}</p>
                                     </div>
-                                    <div class="bg-white rounded-lg p-4 text-center">
-                                        <p class="text-sm text-gray-600 mb-1">Média Mensal</p>
+                                    <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                        <p class="text-sm text-gray-500 mb-1">Média Mensal (Est.)</p>
                                         <p class="text-xl font-bold text-green-600">R$ ${mediaMensal.toFixed(2)}</p>
                                     </div>
-                                    <div class="bg-white rounded-lg p-4 text-center">
-                                        <p class="text-sm text-gray-600 mb-1">Maior Gasto</p>
+                                    <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                        <p class="text-sm text-gray-500 mb-1">Maior Transação</p>
                                         <p class="text-xl font-bold text-orange-600">R$ ${maiorGasto.toFixed(2)}</p>
                                     </div>
-                                    <div class="bg-white rounded-lg p-4 text-center">
-                                        <p class="text-sm text-gray-600 mb-1">Total de Gastos</p>
+                                    <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                                        <p class="text-sm text-gray-500 mb-1">Qtd. de Registros</p>
                                         <p class="text-xl font-bold text-purple-600">${quantidadeGastos}</p>
                                     </div>
                                 `;
@@ -1007,33 +1007,51 @@
             const sortedGastos = [...state.gastos].sort((a, b) => new Date(b.data) - new Date(a.data));
             
             return `
-                <div class="bg-white rounded-xl shadow-md p-6">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Histórico de Gastos</h2>
-                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transform hover:scale-105">
-                            <span class="text-xl">📊</span>Exportar Excel
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
+                        <h2 class="text-2xl font-bold text-gray-800">Histórico de Transações</h2>
+                        <button onclick="exportToExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Exportar Excel
                         </button>
                     </div>
+
+                    <div class="hidden md:grid grid-cols-5 gap-3 p-3 text-sm font-semibold text-gray-500 border-b border-gray-200">
+                        <span class="md:col-span-2">Categoria / Descrição</span>
+                        <span class="text-center">Responsável</span>
+                        <span class="text-right">Valor</span>
+                        <span class="text-right">Data / Ações</span>
+                    </div>
+
                     ${sortedGastos.length === 0 ? `
-                        <p class="text-center text-gray-500 py-8">Nenhum gasto registrado ainda</p>
+                        <p class="text-center text-gray-500 py-8">Nenhuma despesa registrada ainda.</p>
                     ` : `
-                        <div class="space-y-3">
+                        <div class="space-y-3 mt-4">
                             ${sortedGastos.map(gasto => `
-                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                                    <div class="flex-1">
-                                        <div class="flex items-center gap-3 flex-wrap">
-                                            <span class="px-2 py-1 rounded text-xs font-semibold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}">
-                                                ${gasto.tipo === 'fixo' ? 'Fixo' : 'Variável'}
+                                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 p-4 bg-white rounded-lg border-l-4 border-gray-300 shadow-sm hover:shadow-md hover:border-blue-400 transition-all">
+                                    <div class="md:col-span-2">
+                                        <div class="flex items-center gap-3 flex-wrap mb-1">
+                                            <span class="text-lg font-bold text-gray-900">${gasto.categoria}</span>
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${gasto.tipo === 'fixo' ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}">
+                                                ${gasto.tipo === 'fixo' ? 'FIXO' : 'VARIÁVEL'}
                                             </span>
-                                            <span class="font-semibold text-gray-800">${gasto.categoria}</span>
-                                            <span class="px-2 py-1 rounded text-xs font-semibold bg-orange-100 text-orange-700">👤 ${gasto.responsavel}</span>
                                         </div>
-                                        <p class="text-sm text-gray-600 mt-1">${gasto.descricao || 'Sem descrição'}</p>
-                                        <p class="text-xs text-gray-500 mt-1">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                                        <p class="text-sm text-gray-500">${gasto.descricao || 'Sem descrição'}</p>
                                     </div>
-                                    <div class="flex items-center gap-4">
-                                        <span class="text-xl font-bold text-gray-800">R$ ${gasto.valor.toFixed(2)}</span>
-                                        <button onclick="handleRemoveGasto(${gasto.id})" class="text-red-500 hover:text-red-700 transition-colors">🗑️</button>
+                                    <div class="flex items-center md:justify-center">
+                                        <span class="text-sm font-medium text-gray-700 flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            ${gasto.responsavel}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center md:justify-end">
+                                        <span class="text-xl font-extrabold text-red-600">R$ ${gasto.valor.toFixed(2)}</span>
+                                    </div>
+                                    <div class="flex items-center md:justify-end gap-3">
+                                        <span class="text-xs text-gray-500">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                                        <button onclick="handleRemoveGasto(${gasto.id})" class="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors" title="Excluir Gasto">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        </button>
                                     </div>
                                 </div>
                             `).join('')}
@@ -1045,41 +1063,46 @@
 
         function renderConfig() {
             return `
-                <div class="bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">⚙️ Configurações</h2>
-                    <div class="space-y-6">
+                <div class="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4">⚙️ Configurações do Sistema</h2>
+                    <div class="space-y-8">
+                        
                         <div class="border-b border-gray-200 pb-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">🔐 Segurança</h3>
-                            ${!isFirebaseInitialized ? `
-                                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-lg">
-                                    <p class="font-bold">Aviso:</p>
-                                    <p class="text-sm">Não é possível alterar a senha. O Firebase não está configurado.</p>
-                                </div>
-                            ` : !state.showChangePassword ? `
-                                <button onclick="state.showChangePassword = true; render();" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                                    Alterar Senha
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7h3a5 5 0 015 5v2m-4 1v2m-6-4v2m-6-2v2m-3-1V7a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                                Segurança
+                            </h3>
+                            ${!state.showChangePassword ? `
+                                <button onclick="state.showChangePassword = true; render();" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
+                                    Alterar Senha de Acesso
                                 </button>
                             ` : `
-                                <div class="space-y-4">
+                                <div class="space-y-4 bg-gray-50 p-5 rounded-lg border border-blue-100 fade-in">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Nova Senha</label>
-                                        <input type="password" value="${state.newPassword}" onchange="state.newPassword = this.value; render();" placeholder="Mínimo 6 caracteres" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Nova Senha</label>
+                                        <input type="password" value="${state.newPassword}" onchange="state.newPassword = this.value; render();" placeholder="Mínimo 6 caracteres" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirmar Nova Senha</label>
-                                        <input type="password" value="${state.confirmPassword}" onchange="state.confirmPassword = this.value; render();" placeholder="Digite novamente" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Confirmar Nova Senha</label>
+                                        <input type="password" value="${state.confirmPassword}" onchange="state.confirmPassword = this.value; render();" placeholder="Digite novamente" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
                                     </div>
-                                    ${state.passwordError ? `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">${state.passwordError}</div>` : ''}
-                                    <div class="flex gap-3">
-                                        <button onclick="state.showChangePassword = false; state.newPassword = ''; state.confirmPassword = ''; state.passwordError = ''; render();" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancelar</button>
-                                        <button onclick="handleChangePassword()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Salvar</button>
+                                    ${state.passwordError ? `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">${state.passwordError}</div>` : ''}
+                                    <div class="flex gap-3 pt-2">
+                                        <button onclick="state.showChangePassword = false; state.newPassword = ''; state.confirmPassword = ''; state.passwordError = ''; render();" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100">Cancelar</button>
+                                        <button onclick="handleChangePassword()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-md">Salvar Nova Senha</button>
                                     </div>
                                 </div>
                             `}
                         </div>
+                        
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">🚪 Sessão</h3>
-                            <button onclick="handleLogout()" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors">Sair do Sistema</button>
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                Gerenciamento de Sessão
+                            </h3>
+                            <button onclick="handleLogout()" class="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md">
+                                Sair do Sistema
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1104,61 +1127,72 @@
         }
 
         function render() {
-            if (!document.getElementById('root')) {
-                console.error("Elemento #root não encontrado. A renderização foi abortada.");
-                return;
-            }
-
             if (!state.isAuthenticated) {
                 document.getElementById('root').innerHTML = renderLogin();
                 return;
             }
 
             const content = `
-                <div class="container mx-auto px-4 py-8">
-                    <div class="text-center mb-8">
-                        <h1 class="text-4xl font-bold text-gray-800 mb-2">💰 Controle Orçamentário Familiar</h1>
-                        <p class="text-gray-600">Gerencie suas finanças de forma simples e eficiente</p>
+                <div class="container mx-auto px-4 py-10">
+                    <div class="text-center mb-10">
+                        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">💸 Family Budget Manager</h1>
+                        <p class="text-gray-600 text-lg">Gerencie suas finanças de forma simples e eficiente</p>
                     </div>
                     
-                    <div class="flex justify-center mb-8">
-                        <div class="bg-white rounded-lg shadow-md p-1 inline-flex gap-1 flex-wrap">
-                            <button onclick="changeTab('dashboard')" class="px-4 md:px-6 py-2 rounded-md font-medium transition-colors ${state.activeTab === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}">Dashboard</button>
-                            <button onclick="changeTab('adicionar')" class="px-4 md:px-6 py-2 rounded-md font-medium transition-colors ${state.activeTab === 'adicionar' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}">Adicionar</button>
-                            <button onclick="changeTab('graficos')" class="px-4 md:px-6 py-2 rounded-md font-medium transition-colors ${state.activeTab === 'graficos' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}">📊 Gráficos</button>
-                            <button onclick="changeTab('historico')" class="px-4 md:px-6 py-2 rounded-md font-medium transition-colors ${state.activeTab === 'historico' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}">Histórico</button>
-                            <button onclick="changeTab('config')" class="px-4 md:px-6 py-2 rounded-md font-medium transition-colors ${state.activeTab === 'config' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}">⚙️</button>
+                    <div class="flex justify-center mb-10">
+                        <div class="bg-white border border-gray-200 rounded-full shadow-lg p-1 inline-flex gap-1 flex-wrap">
+                            <button onclick="changeTab('dashboard')" class="flex items-center gap-2 px-5 py-2 rounded-full font-semibold transition-all duration-300 ${state.activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-50'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                                Dashboard
+                            </button>
+                            <button onclick="changeTab('adicionar')" class="flex items-center gap-2 px-5 py-2 rounded-full font-semibold transition-all duration-300 ${state.activeTab === 'adicionar' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-50'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Adicionar
+                            </button>
+                            <button onclick="changeTab('graficos')" class="flex items-center gap-2 px-5 py-2 rounded-full font-semibold transition-all duration-300 ${state.activeTab === 'graficos' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-50'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+                                Gráficos
+                            </button>
+                            <button onclick="changeTab('historico')" class="flex items-center gap-2 px-5 py-2 rounded-full font-semibold transition-all duration-300 ${state.activeTab === 'historico' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-50'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                Histórico
+                            </button>
+                            <button onclick="changeTab('config')" class="flex items-center gap-2 px-5 py-2 rounded-full font-semibold transition-all duration-300 ${state.activeTab === 'config' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-50'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </button>
                         </div>
                     </div>
                     
                     <div class="max-w-7xl mx-auto">
-                        ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
-                        ${state.activeTab === 'adicionar' ? renderAddGasto() : ''}
-                        ${state.activeTab === 'graficos' ? renderGraficos() : ''}
-                        ${state.activeTab === 'historico' ? renderHistorico() : ''}
-                        ${state.activeTab === 'config' ? renderConfig() : ''}
+                        <div class="fade-in">
+                            ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
+                            ${state.activeTab === 'adicionar' ? renderAddGasto() : ''}
+                            ${state.activeTab === 'graficos' ? renderGraficos() : ''}
+                            ${state.activeTab === 'historico' ? renderHistorico() : ''}
+                            ${state.activeTab === 'config' ? renderConfig() : ''}
+                        </div>
                     </div>
                 </div>
 
                 ${state.showAddCategory ? `
-                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div class="bg-white rounded-xl p-6 max-w-md w-full">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">Adicionar Nova Categoria</h3>
+                    <div class="fixed inset-0 bg-gray-900 bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl fade-in">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Nova Categoria</h3>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-                                    <select onchange="state.categoryType = this.value; render();" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                                        <option value="fixo" ${state.categoryType === 'fixo' ? 'selected' : ''}>Fixo</option>
-                                        <option value="variavel" ${state.categoryType === 'variavel' ? 'selected' : ''}>Variável</option>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Tipo</label>
+                                    <select onchange="state.categoryType = this.value; render();" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150">
+                                        <option value="fixo" ${state.categoryType === 'fixo' ? 'selected' : ''}>Fixo (Recorrente)</option>
+                                        <option value="variavel" ${state.categoryType === 'variavel' ? 'selected' : ''}>Variável (Pontual)</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Nome da Categoria</label>
-                                    <input type="text" value="${state.newCategoryName}" onchange="state.newCategoryName = this.value" placeholder="Ex: Aluguel, Transporte" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Nome da Categoria</label>
+                                    <input type="text" value="${state.newCategoryName}" onchange="state.newCategoryName = this.value" placeholder="Ex: Aluguel, Transporte" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
                                 </div>
-                                <div class="flex gap-3 pt-2">
-                                    <button onclick="state.showAddCategory = false; state.newCategoryName = ''; render();" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancelar</button>
-                                    <button onclick="handleAddCategory()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Adicionar</button>
+                                <div class="flex gap-3 pt-4">
+                                    <button onclick="state.showAddCategory = false; state.newCategoryName = ''; render();" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100">Cancelar</button>
+                                    <button onclick="handleAddCategory()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-md">Adicionar Categoria</button>
                                 </div>
                             </div>
                         </div>
@@ -1166,21 +1200,21 @@
                 ` : ''}
 
                 ${state.showEditNames ? `
-                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div class="bg-white rounded-xl p-6 max-w-md w-full">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">Personalizar Nomes</h3>
+                    <div class="fixed inset-0 bg-gray-900 bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl fade-in">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3">Personalizar Nomes</h3>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Pessoa 1</label>
-                                    <input type="text" value="${state.tempNome1}" onchange="state.tempNome1 = this.value" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Pessoa 1</label>
+                                    <input type="text" value="${state.tempNome1}" onchange="state.tempNome1 = this.value" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Pessoa 2</label>
-                                    <input type="text" value="${state.tempNome2}" onchange="state.tempNome2 = this.value" class="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Pessoa 2</label>
+                                    <input type="text" value="${state.tempNome2}" onchange="state.tempNome2 = this.value" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg transition-all duration-150"/>
                                 </div>
-                                <div class="flex gap-3 pt-2">
-                                    <button onclick="state.showEditNames = false; render();" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancelar</button>
-                                    <button onclick="handleSaveNames()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Salvar</button>
+                                <div class="flex gap-3 pt-4">
+                                    <button onclick="state.showEditNames = false; render();" class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100">Cancelar</button>
+                                    <button onclick="handleSaveNames()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-md">Salvar Nomes</button>
                                 </div>
                             </div>
                         </div>
@@ -1197,7 +1231,6 @@
             
             if (tab === 'graficos') {
                 setTimeout(() => {
-                    // Inicializa ano e categoria para gráficos, se necessário
                     if (!state.selectedYear) {
                         const anos = getAnosDisponiveis();
                         state.selectedYear = anos.length > 0 ? anos[0] : new Date().getFullYear();
@@ -1205,24 +1238,19 @@
                     
                     if (!state.selectedCategory) {
                         const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis];
-                        state.selectedCategory = todasCategorias[0] || '';
+                        state.selectedCategory = todasCategorias[0] || 'Escola';
                     }
                     
-                    if (document.getElementById('graficoMensal')) criarGraficoMensal();
-                    if (document.getElementById('graficoCategoria') && state.selectedCategory) criarGraficoCategoria();
+                    criarGraficoMensal();
+                    criarGraficoCategoria();
                 }, 100);
             }
         }
 
-        // --- INÍCIO DA APLICAÇÃO ---
-        // Garante que o script só comece a interagir com o DOM depois que a página estiver carregada
-        window.addEventListener('DOMContentLoaded', (event) => {
-            if (isFirebaseInitialized) {
-                checkStoredPassword();
-            }
-            // Força a renderização inicial (tela de login)
-            render();
-        });
+        if (isFirebaseInitialized) {
+            checkStoredPassword();
+        }
+        render();
     </script>
 </body>
 </html>
