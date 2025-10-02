@@ -97,6 +97,7 @@
             editingGastoId: null,
             searchQuery: '',
             searchResults: [],
+            showMenu: false,
             selectedYear: new Date().getFullYear(),
             selectedMonth: new Date().getMonth(),
             selectedMonthGrafico: new Date().getMonth(),
@@ -1056,9 +1057,9 @@
                                             </h4>
                                             <ul class="space-y-2 ml-4">
                                                 ${gastosCategoria.map(gasto => `
-                                                    <li class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
-                                                        <div class="flex items-center gap-4">
-                                                            <div class="text-center w-12">
+                                                    <li class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                                                        <div class="flex items-center gap-3">
+                                                            <div class="text-center w-10">
                                                                 <p class="font-bold text-lg text-blue-600">${new Date(gasto.data + 'T00:00:00').getDate()}</p>
                                                                 <p class="text-xs text-slate-500">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' })}</p>
                                                             </div>
@@ -1238,18 +1239,50 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                             Orçamento Familiar
                         </h1>
-                        <nav class="bg-slate-100 rounded-full p-1 flex items-center gap-1">
-                            <button onclick="changeTab('adicionar')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'adicionar' ? activeTabClass : inactiveTabClass}">Adicionar</button>
-                            <button onclick="changeTab('dashboard')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'dashboard' ? activeTabClass : inactiveTabClass}">Dashboard</button>
-                            <button onclick="changeTab('graficos')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'graficos' ? activeTabClass : inactiveTabClass}">Gráficos</button>
-                            <button onclick="changeTab('historico')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'historico' ? activeTabClass : inactiveTabClass}">Histórico</button>
-                            <button onclick="changeTab('pesquisa')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'pesquisa' ? activeTabClass : inactiveTabClass}">Pesquisa</button>
-                            <button onclick="changeTab('config')" title="Configurações" class="w-9 h-7 flex items-center justify-center rounded-full font-semibold text-sm transition-all ${state.activeTab === 'config' ? activeTabClass : inactiveTabClass}">⚙️</button>
-                        </nav>
+                        <div class="relative">
+                            <button onclick="state.showMenu = !state.showMenu; render();" class="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-semibold text-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                Menu
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            ${state.showMenu ? `
+                                <div class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
+                                    <button onclick="changeTab('adicionar'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'adicionar' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
+                                        <span class="text-lg">➕</span>
+                                        <span>Adicionar</span>
+                                    </button>
+                                    <button onclick="changeTab('dashboard'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
+                                        <span class="text-lg">📊</span>
+                                        <span>Dashboard</span>
+                                    </button>
+                                    <button onclick="changeTab('graficos'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'graficos' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
+                                        <span class="text-lg">📈</span>
+                                        <span>Gráficos</span>
+                                    </button>
+                                    <button onclick="changeTab('historico'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'historico' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
+                                        <span class="text-lg">📝</span>
+                                        <span>Histórico</span>
+                                    </button>
+                                    <button onclick="changeTab('pesquisa'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'pesquisa' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
+                                        <span class="text-lg">🔍</span>
+                                        <span>Pesquisa</span>
+                                    </button>
+                                    <div class="border-t border-slate-200"></div>
+                                    <button onclick="changeTab('config'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'config' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
+                                        <span class="text-lg">⚙️</span>
+                                        <span>Configurações</span>
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
                 </header>
                 
-                <main class="container mx-auto px-4 py-8">
+                <main class="container mx-auto px-4 py-8" onclick="if(state.showMenu) { state.showMenu = false; render(); }">
                     <div class="fade-in">
                         ${state.activeTab === 'adicionar' ? renderAddGasto() : ''}
                         ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
