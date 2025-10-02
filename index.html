@@ -108,7 +108,7 @@
                 valor: '',
                 data: new Date().toISOString().split('T')[0],
                 descricao: '',
-                responsavel: 'Pessoa 1'
+                responsavel: ''
             },
             tempNome1: 'Pessoa 1',
             tempNome2: 'Pessoa 2',
@@ -311,7 +311,7 @@
         }
 
         function handleAddGasto() {
-            if (state.formData.categoria && state.formData.valor > 0 && state.formData.data && state.formData.responsavel) {
+            if (state.formData.valor > 0 && state.formData.data && state.formData.descricao.trim() && state.formData.responsavel) {
                 const novoGasto = {
                     id: Date.now(),
                     ...state.formData,
@@ -320,16 +320,17 @@
                 state.gastos.push(novoGasto);
                 saveGastoToFirebase(novoGasto);
                 state.formData = {
-                    ...state.formData,
                     tipo: 'variavel',
                     categoria: '',
                     valor: '',
+                    data: new Date().toISOString().split('T')[0],
                     descricao: '',
+                    responsavel: ''
                 };
                 alert('Gasto adicionado com sucesso! 🎉');
                 changeTab('dashboard');
             } else {
-                alert('⚠️ Por favor, preencha Categoria, Valor e Data para adicionar um gasto.');
+                alert('⚠️ Por favor, preencha Valor, Data, Descrição e Responsável para adicionar um gasto.');
             }
         }
 
@@ -340,7 +341,7 @@
                 valor: '',
                 data: new Date().toISOString().split('T')[0],
                 descricao: '',
-                responsavel: state.nomes[0]
+                responsavel: ''
             };
             render();
         }
@@ -405,7 +406,7 @@
         }
 
         function handleSaveEditGasto() {
-            if (state.formData.categoria && state.formData.valor > 0 && state.formData.data && state.formData.responsavel) {
+            if (state.formData.valor > 0 && state.formData.data && state.formData.descricao.trim() && state.formData.responsavel) {
                 const index = state.gastos.findIndex(g => g.id === state.editingGastoId);
                 if (index !== -1) {
                     state.gastos[index] = {
@@ -422,13 +423,13 @@
                         valor: '',
                         data: new Date().toISOString().split('T')[0],
                         descricao: '',
-                        responsavel: state.nomes[0]
+                        responsavel: ''
                     };
                     alert('Gasto atualizado com sucesso! ✅');
                     render();
                 }
             } else {
-                alert('⚠️ Por favor, preencha Categoria, Valor e Data para salvar o gasto.');
+                alert('⚠️ Por favor, preencha Valor, Data, Descrição e Responsável para salvar o gasto.');
             }
         }
 
@@ -441,7 +442,7 @@
                 valor: '',
                 data: new Date().toISOString().split('T')[0],
                 descricao: '',
-                responsavel: state.nomes[0]
+                responsavel: ''
             };
             render();
         }
@@ -916,24 +917,25 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Valor (R$)</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Valor (R$) <span class="text-red-500">*</span></label>
                             <input type="number" step="0.01" value="${state.formData.valor}" oninput="updateFormData('valor', this.value)" placeholder="0,00" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Data</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Data <span class="text-red-500">*</span></label>
                             <input type="date" value="${state.formData.data}" onchange="updateFormData('data', this.value)" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
                         </div>
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Responsável</label>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Responsável <span class="text-red-500">*</span></label>
                         <select onchange="updateFormData('responsavel', this.value)" value="${state.formData.responsavel}" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Selecione --</option>
                             ${state.nomes.map(nome => `<option value="${nome}" ${state.formData.responsavel === nome ? 'selected' : ''}>${nome}</option>`).join('')}
                         </select>
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Descrição (Opcional)</label>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Descrição <span class="text-red-500">*</span></label>
                         <textarea oninput="updateFormData('descricao', this.value)" placeholder="Ex: Compras da semana" rows="3" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">${state.formData.descricao}</textarea>
                     </div>
                     
@@ -1338,24 +1340,25 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Valor (R$)</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Valor (R$) <span class="text-red-500">*</span></label>
                             <input type="number" step="0.01" value="${state.formData.valor}" oninput="updateFormData('valor', this.value)" placeholder="0,00" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Data</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Data <span class="text-red-500">*</span></label>
                             <input type="date" value="${state.formData.data}" onchange="updateFormData('data', this.value)" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
                         </div>
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Responsável</label>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Responsável <span class="text-red-500">*</span></label>
                         <select onchange="updateFormData('responsavel', this.value)" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Selecione --</option>
                             ${state.nomes.map(nome => `<option value="${nome}" ${state.formData.responsavel === nome ? 'selected' : ''}>${nome}</option>`).join('')}
                         </select>
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Descrição (Opcional)</label>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Descrição <span class="text-red-500">*</span></label>
                         <textarea oninput="updateFormData('descricao', this.value)" placeholder="Ex: Compras da semana" rows="2" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">${state.formData.descricao}</textarea>
                     </div>
                     
