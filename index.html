@@ -95,6 +95,8 @@
             showEditNames: false,
             showEditGasto: false,
             editingGastoId: null,
+            searchQuery: '',
+            searchResults: [],
             selectedYear: new Date().getFullYear(),
             selectedMonth: new Date().getMonth(),
             selectedMonthGrafico: new Date().getMonth(),
@@ -340,6 +342,40 @@
                 descricao: '',
                 responsavel: state.nomes[0]
             };
+            render();
+        }
+
+        function handleSearch() {
+            if (!state.searchQuery.trim()) {
+                state.searchResults = [];
+                render();
+                return;
+            }
+
+            const query = state.searchQuery.toLowerCase().trim();
+            
+            state.searchResults = state.gastos.filter(gasto => {
+                const categoria = gasto.categoria.toLowerCase();
+                const descricao = (gasto.descricao || '').toLowerCase();
+                const responsavel = gasto.responsavel.toLowerCase();
+                const valor = gasto.valor.toString();
+                const data = new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR');
+                const tipo = gasto.tipo === 'fixo' ? 'fixo' : 'variável';
+                
+                return categoria.includes(query) ||
+                       descricao.includes(query) ||
+                       responsavel.includes(query) ||
+                       valor.includes(query) ||
+                       data.includes(query) ||
+                       tipo.includes(query);
+            }).sort((a, b) => new Date(b.data) - new Date(a.data));
+            
+            render();
+        }
+
+        function clearSearch() {
+            state.searchQuery = '';
+            state.searchResults = [];
             render();
         }
 
@@ -1055,6 +1091,90 @@
             `;
         }
         
+        function renderPesquisa() {
+            return `
+            <div class="bg-white rounded-xl shadow p-6 max-w-3xl mx-auto">
+                <h2 class="text-3xl font-bold text-slate-800 mb-6">🔍 Pesquisar Lançamentos</h2>
+                
+                <div class="mb-6">
+                    <div class="relative">
+                        <input
+                            type="text"
+                            value="${state.searchQuery}"
+                            oninput="state.searchQuery = this.value"
+                            onkeypress="if(event.key === 'Enter') handleSearch()"
+                            placeholder="Digite para buscar: categoria, descrição, responsável, valor, data..."
+                            class="w-full px-4 py-3 pr-24 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            autofocus
+                        />
+                        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex gap-2">
+                            ${state.searchQuery ? `
+                                <button onclick="clearSearch()" class="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 font-medium">
+                                    Limpar
+                                </button>
+                            ` : ''}
+                            <button onclick="handleSearch()" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">A busca é realizada em todos os campos: categoria, descrição, responsável, valor, data e tipo.</p>
+                </div>
+
+                ${!state.searchQuery && state.searchResults.length === 0 ? `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">🔎</div>
+                        <p class="text-slate-600">Digite algo no campo acima para buscar nos seus lançamentos.</p>
+                    </div>
+                ` : state.searchResults.length === 0 && state.searchQuery ? `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">😕</div>
+                        <p class="text-slate-600">Nenhum resultado encontrado para "<strong>${state.searchQuery}</strong>".</p>
+                        <p class="text-sm text-slate-500 mt-2">Tente buscar por outros termos.</p>
+                    </div>
+                ` : `
+                    <div>
+                        <div class="mb-4 flex items-center justify-between">
+                            <p class="text-sm text-slate-600">
+                                Encontrados <strong class="text-blue-600">${state.searchResults.length}</strong> resultado${state.searchResults.length !== 1 ? 's' : ''} para "<strong>${state.searchQuery}</strong>"
+                            </p>
+                        </div>
+                        
+                        <ul class="space-y-3">
+                            ${state.searchResults.map(gasto => `
+                                <li class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                                    <div class="flex items-center gap-4 flex-1">
+                                        <div class="text-center w-16">
+                                            <p class="font-bold text-lg text-blue-600">${new Date(gasto.data + 'T00:00:00').getDate()}</p>
+                                            <p class="text-xs text-slate-500">${new Date(gasto.data + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</p>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-slate-800">${gasto.categoria}</p>
+                                            <p class="text-sm text-slate-600">${gasto.descricao || 'Sem descrição'}</p>
+                                            <div class="mt-1 flex items-center gap-2 text-xs">
+                                                <span class="px-2 py-0.5 rounded-full font-medium ${gasto.tipo === 'fixo' ? 'bg-violet-100 text-violet-700' : 'bg-orange-100 text-orange-700'}">${gasto.tipo}</span>
+                                                <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">${gasto.responsavel}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-lg text-slate-800 text-right whitespace-nowrap">R$ ${gasto.valor.toFixed(2)}</span>
+                                        <button onclick="openEditGasto(${gasto.id})" class="text-slate-400 hover:text-blue-500 transition-colors p-1 rounded-full" title="Editar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                        <button onclick="handleRemoveGasto(${gasto.id})" class="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full" title="Excluir">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `}
+            </div>
+            `;
+        }
+        
         function renderConfig() {
             return `
             <div class="bg-white rounded-xl shadow p-6 max-w-2xl mx-auto">
@@ -1120,6 +1240,7 @@
                             <button onclick="changeTab('dashboard')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'dashboard' ? activeTabClass : inactiveTabClass}">Dashboard</button>
                             <button onclick="changeTab('graficos')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'graficos' ? activeTabClass : inactiveTabClass}">Gráficos</button>
                             <button onclick="changeTab('historico')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'historico' ? activeTabClass : inactiveTabClass}">Histórico</button>
+                            <button onclick="changeTab('pesquisa')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'pesquisa' ? activeTabClass : inactiveTabClass}">Pesquisa</button>
                             <button onclick="changeTab('config')" title="Configurações" class="w-9 h-7 flex items-center justify-center rounded-full font-semibold text-sm transition-all ${state.activeTab === 'config' ? activeTabClass : inactiveTabClass}">⚙️</button>
                         </nav>
                     </div>
@@ -1127,10 +1248,11 @@
                 
                 <main class="container mx-auto px-4 py-8">
                     <div class="fade-in">
-                        ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
                         ${state.activeTab === 'adicionar' ? renderAddGasto() : ''}
+                        ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
                         ${state.activeTab === 'graficos' ? renderGraficos() : ''}
                         ${state.activeTab === 'historico' ? renderHistorico() : ''}
+                        ${state.activeTab === 'pesquisa' ? renderPesquisa() : ''}
                         ${state.activeTab === 'config' ? renderConfig() : ''}
                     </div>
                 </main>
