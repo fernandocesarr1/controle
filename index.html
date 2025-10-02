@@ -91,6 +91,7 @@
             limites: {},
             gastos: [],
             nomes: ['Pessoa 1', 'Pessoa 2'],
+            limiteMensal: 0,
             showAddCategory: false,
             showEditNames: false,
             showEditGasto: false,
@@ -216,7 +217,8 @@
                     variaveis: state.categoriasVariaveis
                 },
                 limites: state.limites,
-                nomes: state.nomes
+                nomes: state.nomes,
+                limiteMensal: state.limiteMensal || 0
             });
         }
 
@@ -558,9 +560,17 @@
                     dataGasto.getFullYear() === state.dashboardYear;
             });
             
+            const gastosDoAno = state.gastos.filter(g => {
+                const dataGasto = new Date(g.data + 'T00:00:00');
+                return dataGasto.getFullYear() === state.dashboardYear;
+            });
+            
             const totalFixos = gastosDoMes.filter(g => g.tipo === 'fixo').reduce((sum, g) => sum + g.valor, 0);
             const totalVariaveis = gastosDoMes.filter(g => g.tipo === 'variavel').reduce((sum, g) => sum + g.valor, 0);
-            return { totalFixos, totalVariaveis, totalGeral: totalFixos + totalVariaveis };
+            const totalMes = totalFixos + totalVariaveis;
+            const totalAno = gastosDoAno.reduce((sum, g) => sum + g.valor, 0);
+            
+            return { totalFixos, totalVariaveis, totalGeral: totalMes, totalAno };
         }
         
         function processarDadosMensais(ano) {
@@ -781,6 +791,14 @@
             const diferenca = totalPessoa1 - totalPessoa2;
             const valorAcerto = Math.abs(diferenca / 2);
 
+            const percentualMes = state.limiteMensal > 0 ? Math.min((totals.totalGeral / state.limiteMensal) * 100, 100) : 0;
+            const statusMes = percentualMes > 100 ? 'danger' : percentualMes >= 80 ? 'warning' : 'safe';
+            const statusColors = {
+                danger: 'bg-red-500',
+                warning: 'bg-yellow-500',
+                safe: 'bg-green-500'
+            };
+
             return `
             <div class="space-y-6">
                 <div class="bg-white rounded-xl shadow p-4 flex flex-wrap items-center gap-4">
@@ -795,18 +813,50 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg shadow-indigo-500/30">
+                        <p class="text-indigo-100 text-sm font-medium">Total do Ano (${state.dashboardYear})</p>
+                        <p class="text-4xl font-bold mt-1">R$ ${totals.totalAno.toFixed(2)}</p>
+                    </div>
                     <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg shadow-blue-500/30">
-                        <p class="text-blue-100 text-sm font-medium">Total do Mês</p>
-                        <p class="text-4xl font-bold mt-1">R$ ${totals.totalGeral.toFixed(2)}</p>
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="text-blue-100 text-sm font-medium">Total do Mês</p>
+                                <p class="text-4xl font-bold mt-1">R$ ${totals.totalGeral.toFixed(2)}</p>
+                            </div>
+                            <div class="text-right">
+                                <input 
+                                    type="number" 
+                                    placeholder="Limite" 
+                                    value="${state.limiteMensal || ''}" 
+                                    onchange="state.limiteMensal = parseFloat(this.value) || 0; syncWithFirebase(); render();" 
+                                    class="w-24 px-2 py-1 text-sm text-slate-800 border-0 rounded-md focus:ring-2 focus:ring-white"
+                                />
+                                <p class="text-xs text-blue-100 mt-1">Limite mensal</p>
+                            </div>
+                        </div>
+                        ${state.limiteMensal > 0 ? `
+                            <div class="mt-3">
+                                <div class="w-full bg-white/30 rounded-full h-3">
+                                    <div class="${statusColors[statusMes]} h-3 rounded-full transition-all duration-500" style="width: ${percentualMes}%"></div>
+                                </div>
+                                <p class="text-xs text-blue-100 mt-1">${percentualMes.toFixed(1)}% do limite</p>
+                            </div>
+                        ` : ''}
                     </div>
-                    <div class="bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl p-6 text-white shadow-lg shadow-purple-500/30">
-                        <p class="text-purple-100 text-sm font-medium">Gastos Fixos</p>
-                        <p class="text-4xl font-bold mt-1">R$ ${totals.totalFixos.toFixed(2)}</p>
-                    </div>
-                    <div class="bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl p-6 text-white shadow-lg shadow-orange-500/30">
-                        <p class="text-amber-100 text-sm font-medium">Gastos Variáveis</p>
-                        <p class="text-4xl font-bold mt-1">R$ ${totals.totalVariaveis.toFixed(2)}</p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4">Resumo de Gastos</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-4 border border-violet-200">
+                            <p class="text-sm text-violet-700 font-medium">Gastos Fixos</p>
+                            <p class="text-3xl font-bold text-violet-900 mt-1">R$ ${totals.totalFixos.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200">
+                            <p class="text-sm text-orange-700 font-medium">Gastos Variáveis</p>
+                            <p class="text-3xl font-bold text-orange-900 mt-1">R$ ${totals.totalVariaveis.toFixed(2)}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -874,21 +924,6 @@
                                         <div class="${statusColors[status]} h-2.5 rounded-full transition-all duration-500" style="width: ${percentual}%"></div>
                                     </div>
                                     ` : ''}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow p-6">
-                    <h2 class="text-xl font-bold text-slate-800 mb-4">Gastos Fixos</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        ${state.categoriasFixas.map(cat => {
-                            const total = calcularTotalCategoria(cat, 'fixo');
-                            return `
-                                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                                    <p class="text-sm text-slate-600 font-medium">${cat}</p>
-                                    <p class="text-lg font-bold text-slate-800 mt-1">R$ ${total.toFixed(2)}</p>
                                 </div>
                             `;
                         }).join('')}
