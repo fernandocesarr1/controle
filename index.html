@@ -331,6 +331,18 @@
             }
         }
 
+        function handleClearForm() {
+            state.formData = {
+                tipo: 'variavel',
+                categoria: '',
+                valor: '',
+                data: new Date().toISOString().split('T')[0],
+                descricao: '',
+                responsavel: state.nomes[0]
+            };
+            render();
+        }
+
         function handleRemoveGasto(id) {
             if (confirm('Tem certeza que deseja excluir este gasto?')) {
                 state.gastos = state.gastos.filter(g => g.id !== id);
@@ -889,9 +901,14 @@
                         <textarea oninput="updateFormData('descricao', this.value)" placeholder="Ex: Compras da semana" rows="3" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">${state.formData.descricao}</textarea>
                     </div>
                     
-                    <button onclick="handleAddGasto()" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 mt-4">
-                        Adicionar Gasto
-                    </button>
+                    <div class="flex gap-3">
+                        <button onclick="handleClearForm()" class="flex-1 bg-slate-200 text-slate-800 py-4 rounded-xl font-bold text-lg hover:bg-slate-300 transition-all duration-300">
+                            Limpar
+                        </button>
+                        <button onclick="handleAddGasto()" class="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                            Adicionar Gasto
+                        </button>
+                    </div>
                 </div>
                 <div class="mt-8 pt-4 border-t border-slate-200 text-center">
                     <button onclick="openAddCategory()" class="text-blue-600 hover:underline font-medium text-sm">Gerenciar Categorias</button>
@@ -954,7 +971,7 @@
             }, {});
             
             return `
-            <div class="bg-white rounded-xl shadow p-6 max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl shadow p-6 max-w-3xl mx-auto">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                     <h2 class="text-3xl font-bold text-slate-800">Histórico de Lançamentos</h2>
                     ${state.gastos.length > 0 ? `
@@ -1099,8 +1116,8 @@
                             Orçamento Familiar
                         </h1>
                         <nav class="bg-slate-100 rounded-full p-1 flex items-center gap-1">
-                            <button onclick="changeTab('dashboard')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'dashboard' ? activeTabClass : inactiveTabClass}">Dashboard</button>
                             <button onclick="changeTab('adicionar')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'adicionar' ? activeTabClass : inactiveTabClass}">Adicionar</button>
+                            <button onclick="changeTab('dashboard')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'dashboard' ? activeTabClass : inactiveTabClass}">Dashboard</button>
                             <button onclick="changeTab('graficos')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'graficos' ? activeTabClass : inactiveTabClass}">Gráficos</button>
                             <button onclick="changeTab('historico')" class="px-4 py-1.5 rounded-full font-semibold text-sm transition-all ${state.activeTab === 'historico' ? activeTabClass : inactiveTabClass}">Histórico</button>
                             <button onclick="changeTab('config')" title="Configurações" class="w-9 h-7 flex items-center justify-center rounded-full font-semibold text-sm transition-all ${state.activeTab === 'config' ? activeTabClass : inactiveTabClass}">⚙️</button>
