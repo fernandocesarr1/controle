@@ -85,7 +85,7 @@
             confirmPassword: '',
             loginError: '',
             passwordError: '',
-            activeTab: 'dashboard',
+            activeTab: 'adicionar',
             categoriasFixas: ['Escola', 'Diarista', 'Internet', 'Água', 'Luz', 'Clube'],
             categoriasVariaveis: ['Supermercado', 'Farmácia', 'Lazer'],
             limites: {},
@@ -1197,6 +1197,7 @@
 
         function updateFormData(field, value) {
             if (field === 'tipo') {
+                state.formData.tipo = value;
                 state.formData.categoria = '';
                 render(); // Apenas quando muda o tipo para atualizar as categorias disponíveis
             } else if (field === 'valor') {
