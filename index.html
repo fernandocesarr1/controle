@@ -624,7 +624,7 @@
                                         <input
                                             type="password"
                                             value="${state.loginPassword}"
-                                            oninput="state.loginPassword = this.value; state.loginError = ''; render();"
+                                            oninput="state.loginPassword = this.value; state.loginError = '';"
                                             onkeypress="if(event.key === 'Enter') handleLogin()"
                                             placeholder="••••••••"
                                             class="w-full px-4 py-3 pr-10 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all"
