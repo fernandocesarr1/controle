@@ -831,7 +831,7 @@
                                     type="number" 
                                     placeholder="Limite" 
                                     value="${state.limiteMensal || ''}" 
-                                    onchange="state.limiteMensal = parseFloat(this.value) || 0; syncWithFirebase(); render();" 
+                                    onchange="state.limiteMensal = parseFloat(this.value) || 0; syncWithFirebase();" 
                                     class="w-24 px-2 py-1 text-sm text-slate-800 border-0 rounded-md focus:ring-2 focus:ring-white"
                                 />
                                 <p class="text-xs text-blue-100 mt-1">Limite mensal</p>
@@ -845,6 +845,25 @@
                                 <p class="text-sm font-bold text-white mt-2">${percentualMes.toFixed(1)}% do limite</p>
                             </div>
                         ` : ''}
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4">Gastos Fixos do Mês</h2>
+                    <div class="space-y-2">
+                        ${state.categoriasFixas.map(cat => {
+                            const total = calcularTotalCategoria(cat, 'fixo');
+                            return `
+                                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                                    <span class="text-sm font-semibold text-slate-700">${cat}</span>
+                                    <span class="text-lg font-bold text-slate-800">R$ ${total.toFixed(2)}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                        <div class="flex justify-between items-center p-3 bg-violet-100 rounded-lg border-2 border-violet-300 mt-3">
+                            <span class="text-base font-bold text-violet-900">Total de Gastos Fixos</span>
+                            <span class="text-xl font-bold text-violet-900">R$ ${totals.totalFixos.toFixed(2)}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -887,7 +906,7 @@
                                             type="number" 
                                             placeholder="Limite" 
                                             value="${limite || ''}" 
-                                            onchange="state.limitesPorPessoa['${nome}'] = parseFloat(this.value) || 0; syncWithFirebase(); render();" 
+                                            onchange="state.limitesPorPessoa['${nome}'] = parseFloat(this.value) || 0; syncWithFirebase();" 
                                             class="w-24 px-2 py-1 text-sm text-slate-800 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-400"
                                         />
                                         <p class="text-xs text-slate-500 mt-1">Limite</p>
@@ -1323,7 +1342,7 @@
                                 </svg>
                             </button>
                             ${state.showMenu ? `
-                                <div class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
+                                <div class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50" onclick="event.stopPropagation();">
                                     <button onclick="changeTab('adicionar'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'adicionar' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
                                         <span class="text-lg">➕</span>
                                         <span>Adicionar</span>
