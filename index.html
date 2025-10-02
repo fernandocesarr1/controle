@@ -455,7 +455,6 @@
         function handleSetLimite(categoria, valor) {
             state.limites[categoria] = parseFloat(valor) || 0;
             syncWithFirebase();
-            render();
         }
 
         function handleSaveNames() {
@@ -1324,7 +1323,7 @@
             const inactiveTabClass = 'text-slate-600 hover:bg-slate-200';
 
             const content = `
-            <div class="min-h-screen">
+            <div class="min-h-screen" onclick="if(state.showMenu && event.target.closest('header') === null) { state.showMenu = false; render(); }">
                 <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-40">
                     <div class="container mx-auto px-4 py-3 flex justify-between items-center">
                          <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -1332,7 +1331,7 @@
                             Orçamento Familiar
                         </h1>
                         <div class="relative">
-                            <button onclick="state.showMenu = !state.showMenu; render();" class="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-semibold text-sm">
+                            <button onclick="event.stopPropagation(); state.showMenu = !state.showMenu; render();" class="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors font-semibold text-sm">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
                                 </svg>
@@ -1342,7 +1341,7 @@
                                 </svg>
                             </button>
                             ${state.showMenu ? `
-                                <div class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50" onclick="event.stopPropagation();">
+                                <div class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
                                     <button onclick="changeTab('adicionar'); state.showMenu = false;" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${state.activeTab === 'adicionar' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}">
                                         <span class="text-lg">➕</span>
                                         <span>Adicionar</span>
@@ -1374,7 +1373,7 @@
                     </div>
                 </header>
                 
-                <main class="container mx-auto px-4 py-8" onclick="if(state.showMenu) { state.showMenu = false; render(); }">
+                <main class="container mx-auto px-4 py-8">
                     <div class="fade-in">
                         ${state.activeTab === 'adicionar' ? renderAddGasto() : ''}
                         ${state.activeTab === 'dashboard' ? renderDashboard() : ''}
