@@ -701,7 +701,10 @@
         function updateSelectedMonthGrafico(mes) {
             state.selectedMonthGrafico = parseInt(mes);
             render();
-            setTimeout(criarGraficoCategoria, 0);
+            setTimeout(() => {
+                criarGraficoMensal();
+                criarGraficoCategoria();
+            }, 0);
         }
 
         function renderLogin() {
