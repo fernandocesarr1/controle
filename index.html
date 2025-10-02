@@ -282,7 +282,7 @@
         function updateDashboardDate(mes, ano) {
             state.dashboardMonth = parseInt(mes);
             state.dashboardYear = parseInt(ano);
-            render();
+            setTimeout(() => render(), 0);
         }
 
         function getAnosDashboard() {
