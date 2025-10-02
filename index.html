@@ -46,7 +46,7 @@
     <script>
         // Configuração do Firebase (use suas chaves reais aqui)
         const firebaseConfig = {
-            apiKey: "AIzaSyAgopSuSjeQ26UL85eYb11w4BbbNtBg5QE", // MANTENHA SUA CHAVE ORIGINAL
+            apiKey: "AIzaSyAgopSuSjeQ26UL85eYb11w4BbbNtBg5QE",
             authDomain: "orcamento-familiar-dc2e6.firebaseapp.com",
             databaseURL: "https://orcamento-familiar-dc2e6-default-rtdb.firebaseio.com",
             projectId: "orcamento-familiar-dc2e6",
@@ -56,15 +56,11 @@
             measurementId: "G-4E95DZRK3F"
         };
 
-        // --- TODA A LÓGICA JAVASCRIPT ORIGINAL VEM AQUI ---
-        // (O código JS original foi mantido, apenas as funções de renderização foram atualizadas)
-
         // Inicializar Firebase
         let database;
         let isFirebaseInitialized = false;
 
         try {
-            // Verificação para não inicializar com credenciais de exemplo
             if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("SUA_API_KEY")) {
                 firebase.initializeApp(firebaseConfig);
                 database = firebase.database();
@@ -95,14 +91,14 @@
             showAddCategory: false,
             showEditNames: false,
             showEditGasto: false,
-            editingGasto: null,
-            selectedCategory: 'Supermercado', // Categoria inicial para o gráfico
+            editingGastoId: null,
             selectedYear: new Date().getFullYear(),
             selectedMonth: new Date().getMonth(),
+            selectedMonthGrafico: new Date().getMonth(),
             dashboardYear: new Date().getFullYear(),
             dashboardMonth: new Date().getMonth(),
             formData: {
-                tipo: 'variavel', // Inicia com 'variavel' que é mais comum
+                tipo: 'variavel',
                 categoria: '',
                 valor: '',
                 data: new Date().toISOString().split('T')[0],
@@ -117,9 +113,6 @@
         };
 
         const DEFAULT_PASSWORD = 'familia2024';
-
-        // --- Funções de Lógica (handleLogin, syncWithFirebase, etc.) ---
-        // Nenhuma alteração foi feita na lógica principal. As funções abaixo são as mesmas do seu código original.
 
         function simpleHash(str) {
             let hash = 0;
@@ -241,7 +234,6 @@
                     state.categoriasVariaveis = data.categorias?.variaveis || state.categoriasVariaveis;
                     state.limites = data.limites || state.limites;
                     state.nomes = data.nomes || state.nomes;
-                    // Atualiza o responsável padrão no formulário caso os nomes mudem
                     state.formData.responsavel = state.nomes[0];
                     render();
                 }
@@ -253,8 +245,6 @@
                 render();
             });
         }
-        
-        // ... (resto das funções de lógica como calcularTotalCategoria, handleAddGasto, etc. são mantidas) ...
 
         function calcularTotalCategoria(categoria, tipo) {
             return state.gastos
@@ -324,7 +314,6 @@
                 };
                 state.gastos.push(novoGasto);
                 saveGastoToFirebase(novoGasto);
-                // Resetar formulário, mantendo data e responsável
                 state.formData = {
                     ...state.formData,
                     tipo: 'variavel',
@@ -333,7 +322,7 @@
                     descricao: '',
                 };
                 alert('Gasto adicionado com sucesso! 🎉');
-                changeTab('dashboard'); // Volta para o dashboard após adicionar
+                changeTab('dashboard');
             } else {
                 alert('⚠️ Por favor, preencha Categoria, Valor e Data para adicionar um gasto.');
             }
@@ -347,6 +336,65 @@
             }
         }
 
+        function openEditGasto(id) {
+            const gasto = state.gastos.find(g => g.id === id);
+            if (gasto) {
+                state.editingGastoId = id;
+                state.formData = {
+                    tipo: gasto.tipo,
+                    categoria: gasto.categoria,
+                    valor: gasto.valor,
+                    data: gasto.data,
+                    descricao: gasto.descricao || '',
+                    responsavel: gasto.responsavel
+                };
+                state.showEditGasto = true;
+                render();
+            }
+        }
+
+        function handleSaveEditGasto() {
+            if (state.formData.categoria && state.formData.valor > 0 && state.formData.data && state.formData.responsavel) {
+                const index = state.gastos.findIndex(g => g.id === state.editingGastoId);
+                if (index !== -1) {
+                    state.gastos[index] = {
+                        id: state.editingGastoId,
+                        ...state.formData,
+                        valor: parseFloat(state.formData.valor)
+                    };
+                    saveGastoToFirebase(state.gastos[index]);
+                    state.showEditGasto = false;
+                    state.editingGastoId = null;
+                    state.formData = {
+                        tipo: 'variavel',
+                        categoria: '',
+                        valor: '',
+                        data: new Date().toISOString().split('T')[0],
+                        descricao: '',
+                        responsavel: state.nomes[0]
+                    };
+                    alert('Gasto atualizado com sucesso! ✅');
+                    render();
+                }
+            } else {
+                alert('⚠️ Por favor, preencha Categoria, Valor e Data para salvar o gasto.');
+            }
+        }
+
+        function cancelEditGasto() {
+            state.showEditGasto = false;
+            state.editingGastoId = null;
+            state.formData = {
+                tipo: 'variavel',
+                categoria: '',
+                valor: '',
+                data: new Date().toISOString().split('T')[0],
+                descricao: '',
+                responsavel: state.nomes[0]
+            };
+            render();
+        }
+
         function handleSetLimite(categoria, valor) {
             state.limites[categoria] = parseFloat(valor) || 0;
             syncWithFirebase();
@@ -355,7 +403,6 @@
 
         function handleSaveNames() {
             state.nomes = [state.tempNome1.trim(), state.tempNome2.trim()];
-            // Atualiza o responsável no formulário caso o nome tenha mudado
             state.formData.responsavel = state.nomes[0];
             syncWithFirebase();
             state.showEditNames = false;
@@ -427,17 +474,27 @@
             return dados;
         }
 
-        function processarDadosCategoria(categoria, ano) {
-            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-            const dados = Array(12).fill(0);
+        function processarDadosPorMes(mes, ano) {
+            const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis].sort();
+            const dados = {};
+            
+            todasCategorias.forEach(cat => {
+                dados[cat] = 0;
+            });
+            
             state.gastos.forEach(gasto => {
                 const dataGasto = new Date(gasto.data + 'T00:00:00');
-                if (dataGasto.getFullYear() === ano && gasto.categoria === categoria) {
-                    const mes = dataGasto.getMonth();
-                    dados[mes] += gasto.valor;
+                if (dataGasto.getFullYear() === ano && dataGasto.getMonth() === mes) {
+                    if (dados[gasto.categoria] !== undefined) {
+                        dados[gasto.categoria] += gasto.valor;
+                    }
                 }
             });
-            return { labels: meses, valores: dados };
+            
+            return {
+                labels: todasCategorias,
+                valores: todasCategorias.map(cat => dados[cat])
+            };
         }
 
         function getAnosDisponiveis() {
@@ -475,35 +532,65 @@
         }
         
         function criarGraficoCategoria() {
-            if (!state.selectedCategory) return;
-            const dados = processarDadosCategoria(state.selectedCategory, state.selectedYear);
+            const dados = processarDadosPorMes(state.selectedMonthGrafico, state.selectedYear);
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            
             criarGrafico('graficoCategoria', 'categoria', {
                 type: 'bar',
                 data: {
                     labels: dados.labels,
-                    datasets: [{ label: state.selectedCategory, data: dados.valores, backgroundColor: '#10b981', borderRadius: 4 }]
+                    datasets: [{
+                        label: `Gastos em ${meses[state.selectedMonthGrafico]} de ${state.selectedYear}`,
+                        data: dados.valores,
+                        backgroundColor: [
+                            '#3b82f6', '#8b5cf6', '#f97316', '#10b981', '#ef4444',
+                            '#f59e0b', '#06b6d4', '#ec4899', '#6366f1', '#84cc16',
+                            '#14b8a6', '#f43f5e', '#a855f7', '#eab308', '#22c55e'
+                        ],
+                        borderRadius: 6,
+                        borderWidth: 0
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': R$ ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
             });
         }
 
         function updateSelectedYear(ano) {
             state.selectedYear = parseInt(ano);
             render();
-            setTimeout(() => { // Garante que o DOM está atualizado
+            setTimeout(() => {
                 criarGraficoMensal();
                 criarGraficoCategoria();
             }, 0);
         }
 
-        function updateSelectedCategory(categoria) {
-            state.selectedCategory = categoria;
+        function updateSelectedMonthGrafico(mes) {
+            state.selectedMonthGrafico = parseInt(mes);
             render();
             setTimeout(criarGraficoCategoria, 0);
         }
-
-
-        // --- NOVAS FUNÇÕES DE RENDERIZAÇÃO ---
 
         function renderLogin() {
             return `
@@ -757,7 +844,7 @@
 
         function renderGraficos() {
             const anos = getAnosDisponiveis();
-            const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis].sort();
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
             
             if (state.gastos.length === 0) {
                 return `
@@ -785,9 +872,9 @@
 
                     <div class="bg-white rounded-xl shadow p-6">
                          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                            <h2 class="text-xl font-bold text-slate-800">📊 Análise por Categoria (${state.selectedYear})</h2>
-                            <select onchange="updateSelectedCategory(this.value)" class="bg-slate-100 border-transparent rounded-lg text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                                ${todasCategorias.map(cat => `<option value="${cat}" ${cat === state.selectedCategory ? 'selected' : ''}>${cat}</option>`).join('')}
+                            <h2 class="text-xl font-bold text-slate-800">📊 Gastos por Categoria</h2>
+                            <select onchange="updateSelectedMonthGrafico(this.value)" class="bg-slate-100 border-transparent rounded-lg text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                                ${meses.map((mes, idx) => `<option value="${idx}" ${idx === state.selectedMonthGrafico ? 'selected' : ''}>${mes} ${state.selectedYear}</option>`).join('')}
                             </select>
                         </div>
                         <div class="h-96"><canvas id="graficoCategoria"></canvas></div>
@@ -837,7 +924,10 @@
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <span class="font-bold text-lg text-slate-800 text-right">R$ ${gasto.valor.toFixed(2)}</span>
-                                                <button onclick="handleRemoveGasto(${gasto.id})" class="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full">
+                                                <button onclick="openEditGasto(${gasto.id})" class="text-slate-400 hover:text-blue-500 transition-colors p-1 rounded-full" title="Editar">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                </button>
+                                                <button onclick="handleRemoveGasto(${gasto.id})" class="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full" title="Excluir">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
                                             </div>
@@ -874,7 +964,7 @@
 
         function updateFormData(field, value) {
             if (field === 'tipo') {
-                state.formData.categoria = ''; // Limpa a categoria ao trocar o tipo
+                state.formData.categoria = '';
             }
              if (field === 'valor') {
                 state.formData[field] = value ? parseFloat(value) : '';
@@ -895,8 +985,6 @@
             state.showEditNames = true;
             render();
         }
-
-        // --- RENDERIZAÇÃO PRINCIPAL ---
 
         function render() {
             if (!state.isAuthenticated) {
@@ -993,12 +1081,60 @@
                     </div>
                 </div>
             `)}
+
+            ${renderModal('showEditGasto', `
+                <h3 class="text-xl font-bold text-slate-800 mb-4">✏️ Editar Gasto</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Tipo de Gasto</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="updateFormData('tipo', 'variavel');" class="px-4 py-2 rounded-lg text-center font-semibold transition-colors ${state.formData.tipo === 'variavel' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">Variável</button>
+                            <button onclick="updateFormData('tipo', 'fixo');" class="px-4 py-2 rounded-lg text-center font-semibold transition-colors ${state.formData.tipo === 'fixo' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">Fixo</button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Categoria</label>
+                        <select onchange="updateFormData('categoria', this.value)" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Selecione --</option>
+                            ${(state.formData.tipo === 'fixo' ? state.categoriasFixas : state.categoriasVariaveis).map(cat => `<option value="${cat}" ${state.formData.categoria === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Valor (R$)</label>
+                            <input type="number" step="0.01" value="${state.formData.valor}" oninput="updateFormData('valor', this.value)" placeholder="0,00" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Data</label>
+                            <input type="date" value="${state.formData.data}" onchange="updateFormData('data', this.value)" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Responsável</label>
+                        <select onchange="updateFormData('responsavel', this.value)" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            ${state.nomes.map(nome => `<option value="${nome}" ${state.formData.responsavel === nome ? 'selected' : ''}>${nome}</option>`).join('')}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Descrição (Opcional)</label>
+                        <textarea oninput="updateFormData('descricao', this.value)" placeholder="Ex: Compras da semana" rows="2" class="w-full px-4 py-2 bg-slate-50 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">${state.formData.descricao}</textarea>
+                    </div>
+                    
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="cancelEditGasto()" class="flex-1 px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-medium">Cancelar</button>
+                        <button onclick="handleSaveEditGasto()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Salvar Alterações</button>
+                    </div>
+                </div>
+            `)}
             `;
             
             document.getElementById('root').innerHTML = content;
         }
         
-        // Função auxiliar para renderizar modais e evitar repetição de código
         function renderModal(stateKey, innerHtml) {
             if (!state[stateKey]) return '';
             return `
@@ -1009,22 +1145,19 @@
             </div>`;
         }
 
-
         function changeTab(tab) {
             state.activeTab = tab;
-            window.scrollTo(0, 0); // Rola a página para o topo ao trocar de aba
+            window.scrollTo(0, 0);
             render();
             
             if (tab === 'graficos' && state.gastos.length > 0) {
-                // Adiciona um pequeno delay para garantir que o canvas foi renderizado no DOM
                 setTimeout(() => {
                     const anos = getAnosDisponiveis();
                     if (!state.selectedYear || !anos.includes(state.selectedYear)) {
                         state.selectedYear = anos[0];
                     }
-                    const todasCategorias = [...state.categoriasFixas, ...state.categoriasVariaveis];
-                    if (!state.selectedCategory || !todasCategorias.includes(state.selectedCategory)) {
-                        state.selectedCategory = todasCategorias[0] || '';
+                    if (state.selectedMonthGrafico === undefined) {
+                        state.selectedMonthGrafico = new Date().getMonth();
                     }
                     criarGraficoMensal();
                     criarGraficoCategoria();
@@ -1032,7 +1165,6 @@
             }
         }
 
-        // Inicialização
         if (isFirebaseInitialized) {
             checkStoredPassword();
         }
