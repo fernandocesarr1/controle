@@ -244,7 +244,9 @@
                     state.categoriasVariaveis = data.categorias?.variaveis || state.categoriasVariaveis;
                     state.limites = data.limites || state.limites;
                     state.nomes = data.nomes || state.nomes;
-                    state.formData.responsavel = ''; // agora começa vazio
+            state.limiteMensal = data.limiteMensal || 0;
+            state.limitesPorPessoa = data.limitesPorPessoa || {};
+            state.formData.responsavel = '';
                     render();
                 }
             });
@@ -459,7 +461,7 @@
 
         function handleSaveNames() {
             state.nomes = [state.tempNome1.trim(), state.tempNome2.trim()];
-            state.formData.responsavel = ''; // agora começa vazio
+            state.formData.responsavel = state.nomes[0];
             syncWithFirebase();
             state.showEditNames = false;
             render();
