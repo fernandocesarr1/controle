@@ -74,6 +74,14 @@
         } catch (error) {
             console.error("Erro ao inicializar Firebase:", error);
         }
+        
+        function getTodayDateString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // Meses são 0-indexados
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
 
         // Estado da aplicação
         let state = {
@@ -109,7 +117,7 @@
                 tipo: 'variavel',
                 categoria: '',
                 valor: '',
-                data: new Date().toISOString().split('T')[0],
+                data: getTodayDateString(),
                 descricao: '',
                 responsavel: ''
             },
@@ -330,7 +338,7 @@
                     tipo: 'variavel',
                     categoria: '',
                     valor: '',
-                    data: new Date().toISOString().split('T')[0],
+                    data: getTodayDateString(),
                     descricao: '',
                     responsavel: ''
                 };
@@ -346,7 +354,7 @@
                 tipo: 'variavel',
                 categoria: '',
                 valor: '',
-                data: new Date().toISOString().split('T')[0],
+                data: getTodayDateString(),
                 descricao: '',
                 responsavel: ''
             };
@@ -428,7 +436,7 @@
                         tipo: 'variavel',
                         categoria: '',
                         valor: '',
-                        data: new Date().toISOString().split('T')[0],
+                        data: getTodayDateString(),
                         descricao: '',
                         responsavel: ''
                     };
@@ -447,7 +455,7 @@
                 tipo: 'variavel',
                 categoria: '',
                 valor: '',
-                data: new Date().toISOString().split('T')[0],
+                data: getTodayDateString(),
                 descricao: '',
                 responsavel: ''
             };
@@ -856,6 +864,73 @@
                             <p class="text-3xl font-bold text-orange-900 mt-1">R$ ${totals.totalVariaveis.toFixed(2)}</p>
                         </div>
                     </div>
+                    
+                    <div class="mt-6 pt-6 border-t border-slate-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-slate-800">Divisão de Gastos</h2>
+                            <button onclick="openEditNames()" class="text-sm text-blue-600 hover:underline font-medium">Editar Nomes</button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${state.nomes.map((nome, index) => {
+                                const total = index === 0 ? totalPessoa1 : totalPessoa2;
+                                const limite = state.limitesPorPessoa[nome] || 0;
+                                const percentualBase = limite > 0 ? Math.min((total / limite) * 100, 100) : 0;
+                                const percentualExcesso = limite > 0 && total > limite ? ((total - limite) / limite) * 100 : 0;
+                                const ultrapassou = total > limite && limite > 0;
+                                
+                                return `
+                                <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div>
+                                            <p class="text-base font-semibold text-slate-700">👤 ${nome}</p>
+                                            <p class="text-3xl font-bold text-slate-900 mt-1">R$ ${total.toFixed(2)}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <input 
+                                                type="number" 
+                                                placeholder="Limite" 
+                                                value="${limite || ''}" 
+                                                onchange="state.limitesPorPessoa['${nome}'] = parseFloat(this.value) || 0; syncWithFirebase();" 
+                                                class="w-24 px-2 py-1 text-sm text-slate-800 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-400"
+                                            />
+                                            <p class="text-xs text-slate-500 mt-1">Limite</p>
+                                        </div>
+                                    </div>
+                                    ${limite > 0 ? `
+                                        <div class="mt-3">
+                                            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                                                <div class="h-3 rounded-full transition-all duration-500 flex" style="width: ${Math.min(percentualBase + percentualExcesso, 100)}%">
+                                                    <div class="bg-green-500 h-full" style="width: ${ultrapassou ? (percentualBase / (percentualBase + percentualExcesso)) * 100 : 100}%"></div>
+                                                    ${ultrapassou ? `<div class="bg-red-500 h-full" style="width: ${(percentualExcesso / (percentualBase + percentualExcesso)) * 100}%"></div>` : ''}
+                                                </div>
+                                            </div>
+                                            <div class="flex justify-between items-center mt-1">
+                                                <p class="text-sm font-bold ${ultrapassou ? 'text-red-600' : 'text-slate-700'}">${(percentualBase + percentualExcesso).toFixed(1)}% do limite</p>
+                                                ${ultrapassou ? `<p class="text-sm text-red-600 font-bold">Excesso: R$ ${(total - limite).toFixed(2)}</p>` : ''}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-slate-200">
+                            <h3 class="text-md font-bold text-slate-700 mb-2">🎯 Acerto de Contas</h3>
+                            ${diferenca === 0 ? `
+                                <div class="p-4 bg-emerald-50 rounded-lg border border-emerald-200 text-center">
+                                    <p class="text-emerald-700 font-semibold">✅ Contas equilibradas este mês!</p>
+                                </div>
+                            ` : `
+                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center flex flex-col md:flex-row items-center justify-center gap-2">
+                                <span class="font-semibold text-slate-800">${diferenca < 0 ? state.nomes[0] : state.nomes[1]}</span>
+                                <span>precisa transferir</span>
+                                <span class="font-bold text-xl text-emerald-600">R$ ${valorAcerto.toFixed(2)}</span>
+                                <span>para</span>
+                                <span class="font-semibold text-slate-800">${diferenca < 0 ? state.nomes[1] : state.nomes[0]}</span>
+                            </div>
+                            `}
+                        </div>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded-xl shadow p-6">
@@ -870,77 +945,6 @@
                                 </div>
                             `;
                         }).join('')}
-                        <div class="flex justify-between items-center p-3 bg-violet-100 rounded-lg border-2 border-violet-300 mt-3">
-                            <span class="text-base font-bold text-violet-900">Total de Gastos Fixos</span>
-                            <span class="text-xl font-bold text-violet-900">R$ ${totals.totalFixos.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-slate-800">Divisão de Gastos</h2>
-                        <button onclick="openEditNames()" class="text-sm text-blue-600 hover:underline font-medium">Editar Nomes</button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${state.nomes.map((nome, index) => {
-                            const total = index === 0 ? totalPessoa1 : totalPessoa2;
-                            const limite = state.limitesPorPessoa[nome] || 0;
-                            const percentualBase = limite > 0 ? Math.min((total / limite) * 100, 100) : 0;
-                            const percentualExcesso = limite > 0 && total > limite ? ((total - limite) / limite) * 100 : 0;
-                            const ultrapassou = total > limite && limite > 0;
-                            
-                            return `
-                            <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div>
-                                        <p class="text-base font-semibold text-slate-700">👤 ${nome}</p>
-                                        <p class="text-3xl font-bold text-slate-900 mt-1">R$ ${total.toFixed(2)}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <input 
-                                            type="number" 
-                                            placeholder="Limite" 
-                                            value="${limite || ''}" 
-                                            onchange="state.limitesPorPessoa['${nome}'] = parseFloat(this.value) || 0; syncWithFirebase();" 
-                                            class="w-24 px-2 py-1 text-sm text-slate-800 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-400"
-                                        />
-                                        <p class="text-xs text-slate-500 mt-1">Limite</p>
-                                    </div>
-                                </div>
-                                ${limite > 0 ? `
-                                    <div class="mt-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                                            <div class="h-3 rounded-full transition-all duration-500 flex" style="width: ${Math.min(percentualBase + percentualExcesso, 100)}%">
-                                                <div class="bg-green-500 h-full" style="width: ${ultrapassou ? (percentualBase / (percentualBase + percentualExcesso)) * 100 : 100}%"></div>
-                                                ${ultrapassou ? `<div class="bg-red-500 h-full" style="width: ${(percentualExcesso / (percentualBase + percentualExcesso)) * 100}%"></div>` : ''}
-                                            </div>
-                                        </div>
-                                        <div class="flex justify-between items-center mt-1">
-                                            <p class="text-sm font-bold ${ultrapassou ? 'text-red-600' : 'text-slate-700'}">${(percentualBase + percentualExcesso).toFixed(1)}% do limite</p>
-                                            ${ultrapassou ? `<p class="text-sm text-red-600 font-bold">Excesso: R$ ${(total - limite).toFixed(2)}</p>` : ''}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            `;
-                        }).join('')}
-                    </div>
-                    <div class="mt-6 pt-6 border-t border-slate-200">
-                        <h3 class="text-md font-bold text-slate-700 mb-2">🎯 Acerto de Contas</h3>
-                        ${diferenca === 0 ? `
-                            <div class="p-4 bg-emerald-50 rounded-lg border border-emerald-200 text-center">
-                                <p class="text-emerald-700 font-semibold">✅ Contas equilibradas este mês!</p>
-                            </div>
-                        ` : `
-                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center flex flex-col md:flex-row items-center justify-center gap-2">
-                            <span class="font-semibold text-slate-800">${diferenca < 0 ? state.nomes[0] : state.nomes[1]}</span>
-                            <span>precisa transferir</span>
-                            <span class="font-bold text-xl text-emerald-600">R$ ${valorAcerto.toFixed(2)}</span>
-                            <span>para</span>
-                            <span class="font-semibold text-slate-800">${diferenca < 0 ? state.nomes[1] : state.nomes[0]}</span>
-                        </div>
-                        `}
                     </div>
                 </div>
 
