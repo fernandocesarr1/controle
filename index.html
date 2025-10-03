@@ -98,12 +98,14 @@
             categoriasVariaveis: ['Supermercado', 'Farmácia', 'Lazer'],
             limites: {},
             gastos: [],
+            notificacoes: [],
             nomes: ['Fernando', 'Estefania'],
             limiteMensal: 0,
             limitesPorPessoa: {},
             showAddCategory: false,
             showEditNames: false,
             showEditGasto: false,
+            showNotificationsReport: false,
             editingGastoId: null,
             searchQuery: '',
             searchResults: [],
@@ -129,6 +131,16 @@
         };
 
         const DEFAULT_PASSWORD = 'familia2024';
+        
+        function logAction(actionType, gastoData) {
+            if (!isFirebaseInitialized) return;
+            const logEntry = {
+                action: actionType, // 'criação', 'edição', 'exclusão'
+                timestamp: new Date().toISOString(),
+                gasto: gastoData
+            };
+            database.ref('notificacoes').push(logEntry);
+        }
 
         function simpleHash(str) {
             let hash = 0;
@@ -252,9 +264,9 @@
                     state.categoriasVariaveis = data.categorias?.variaveis || state.categoriasVariaveis;
                     state.limites = data.limites || state.limites;
                     state.nomes = data.nomes || state.nomes;
-            state.limiteMensal = data.limiteMensal || 0;
-            state.limitesPorPessoa = data.limitesPorPessoa || {};
-            state.formData.responsavel = '';
+                    state.limiteMensal = data.limiteMensal || 0;
+                    state.limitesPorPessoa = data.limitesPorPessoa || {};
+                    state.formData.responsavel = '';
                     render();
                 }
             });
@@ -263,6 +275,14 @@
                 const data = snapshot.val();
                 state.gastos = data ? Object.values(data) : [];
                 render();
+            });
+            
+            database.ref('notificacoes').on('value', (snapshot) => {
+                const data = snapshot.val();
+                state.notificacoes = data ? Object.values(data) : [];
+                if (state.showNotificationsReport) {
+                    render();
+                }
             });
         }
 
@@ -351,6 +371,8 @@
                 };
                 state.gastos.push(novoGasto);
                 saveGastoToFirebase(novoGasto);
+                logAction('criação', novoGasto);
+                
                 state.formData = {
                     tipo: 'variavel',
                     categoria: '',
@@ -414,6 +436,10 @@
 
         function handleRemoveGasto(id) {
             if (confirm('Tem certeza que deseja excluir este gasto?')) {
+                const gastoParaExcluir = state.gastos.find(g => g.id === id);
+                if (gastoParaExcluir) {
+                    logAction('exclusão', gastoParaExcluir);
+                }
                 state.gastos = state.gastos.filter(g => g.id !== id);
                 removeGastoFromFirebase(id);
                 render();
@@ -446,7 +472,10 @@
                         ...state.formData,
                         valor: parseFloat(state.formData.valor)
                     };
-                    saveGastoToFirebase(state.gastos[index]);
+                    const gastoEditado = state.gastos[index];
+                    saveGastoToFirebase(gastoEditado);
+                    logAction('edição', gastoEditado);
+                    
                     state.showEditGasto = false;
                     state.editingGastoId = null;
                     state.formData = {
@@ -1151,8 +1180,12 @@
             <div class="bg-white rounded-xl shadow p-6 max-w-3xl mx-auto">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                     <h2 class="text-3xl font-bold text-slate-800">Histórico de Lançamentos</h2>
-                    ${state.gastos.length > 0 ? `
-                        <div class="flex gap-2">
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="state.showNotificationsReport = true; render();" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-all flex items-center gap-2 font-semibold text-sm shadow-sm hover:shadow-md">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" /></svg>
+                            Relatório de Notificações
+                        </button>
+                        ${state.gastos.length > 0 ? `
                             <button onclick="exportToExcel()" class="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-all flex items-center gap-2 font-semibold text-sm shadow-sm hover:shadow-md">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
                                 Excel
@@ -1161,15 +1194,14 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
                                 PDF
                             </button>
-                        </div>
-                    ` : ''}
+                        ` : ''}
+                    </div>
                 </div>
                 ${state.gastos.length === 0 ? `
                     <p class="text-center text-slate-500 py-8">Nenhum gasto registrado ainda.</p>
                 ` : `
                     <div class="space-y-8">
                         ${Object.entries(gastosAgrupados).map(([mesAno, gastosDoMes]) => {
-                            // Agrupar por categoria dentro do mês
                             const porCategoria = gastosDoMes.reduce((acc, gasto) => {
                                 if (!acc[gasto.categoria]) {
                                     acc[gasto.categoria] = [];
@@ -1178,7 +1210,6 @@
                                 return acc;
                             }, {});
                             
-                            // Ordenar cada categoria por data (cronologicamente - mais antigo primeiro)
                             Object.keys(porCategoria).forEach(categoria => {
                                 porCategoria[categoria].sort((a, b) => new Date(a.data) - new Date(b.data));
                             });
@@ -1335,6 +1366,62 @@
             </div>
             `;
         }
+        
+        function renderNotificationsReportModal() {
+            if (!state.showNotificationsReport) return '';
+
+            const sortedNotifications = [...state.notificacoes].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            const getActionBadge = (action) => {
+                switch (action) {
+                    case 'criação': return '<span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Criação</span>';
+                    case 'edição': return '<span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Edição</span>';
+                    case 'exclusão': return '<span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Exclusão</span>';
+                    default: return '';
+                }
+            };
+
+            const innerHtml = `
+                <div class="flex justify-between items-center mb-4 border-b pb-3">
+                    <h3 class="text-2xl font-bold text-slate-800">Relatório de Notificações</h3>
+                    <button onclick="state.showNotificationsReport = false; render();" class="text-slate-400 hover:text-slate-800 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="max-h-[70vh] overflow-y-auto pr-2">
+                    ${sortedNotifications.length === 0 ? '<p class="text-center text-slate-500 py-12">Nenhuma notificação registrada.</p>' : ''}
+                    <ul class="space-y-3">
+                        ${sortedNotifications.map(log => `
+                            <li class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        ${getActionBadge(log.action)}
+                                        <p class="text-xs text-slate-500 mt-1">
+                                            ${new Date(log.timestamp).toLocaleString('pt-BR')}
+                                        </p>
+                                    </div>
+                                    <span class="font-bold text-lg text-slate-800">
+                                        R$ ${log.gasto.valor.toFixed(2)}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-slate-700">${log.gasto.categoria}</p>
+                                    <p class="text-sm text-slate-600">${log.gasto.descricao}</p>
+                                    <p class="text-xs text-slate-500 mt-1">
+                                        Responsável: <strong>${log.gasto.responsavel}</strong> | Data do Gasto: <strong>${new Date(log.gasto.data + 'T00:00:00').toLocaleDateString('pt-BR')}</strong>
+                                    </p>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+
+            return `
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 fade-in" onclick="if(event.target === this) { state.showNotificationsReport = false; render(); }">
+                <div class="bg-white rounded-xl p-6 max-w-3xl w-full shadow-2xl">
+                    ${innerHtml}
+                </div>
+            </div>`;
+        }
 
         function updateFormData(field, value) {
             if (field === 'tipo') {
@@ -1365,10 +1452,7 @@
                 document.getElementById('root').innerHTML = renderLogin();
                 return;
             }
-
-            const activeTabClass = 'bg-blue-600 text-white shadow-md';
-            const inactiveTabClass = 'text-slate-600 hover:bg-slate-200';
-
+            
             const content = `
             <div class="min-h-screen" onclick="if(state.showMenu && event.target.closest('header') === null) { state.showMenu = false; render(); }">
                 <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-40">
@@ -1538,6 +1622,8 @@
                     </div>
                 </div>
             `)}
+            
+            ${renderNotificationsReportModal()}
             `;
             
             document.getElementById('root').innerHTML = content;
